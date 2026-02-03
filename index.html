@@ -3,87 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Chat Pro</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Чатқа кіру</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; }
+        .auth-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 5px; }
+        button:hover { background: #0056b3; }
+        .secondary-btn { background: #28a745; }
+        .secondary-btn:hover { background: #218838; }
+    </style>
 </head>
 <body>
-    <div id="auth-box">
-        <h2>Кіру / Тіркелу</h2>
-        <input type="text" id="user" placeholder="Логин">
-        <input type="password" id="pass" placeholder="Пароль">
-        <button onclick="auth('login')">Кіру</button>
-        <button onclick="auth('register')" style="background: #666;">Тіркелу</button>
-    </div>
 
-    <div id="chat-box" style="display: none;">
-        <div class="sidebar">
-            <h3>Чат</h3>
-            <input type="text" id="room-id" placeholder="Бөлме атауы немесе ID">
-            <button onclick="changeRoom()">Қосылу</button>
-            <p>Бөлме: <b id="current-room">Global</b></p>
-        </div>
-        <div class="main">
-            <div id="messages"></div>
-            <div class="footer">
-                <input type="text" id="m-text" placeholder="Хабарлама жазу...">
-                <button onclick="sendMessage()">➤</button>
-            </div>
-        </div>
-    </div>
+<div class="auth-container">
+    <h2>Чатқа қосылу</h2>
+    <input type="text" id="username" placeholder="Логин">
+    <input type="password" id="password" placeholder="Құпия сөз">
+    <button onclick="loginUser()">Кіру</button>
+    <button class="secondary-btn" onclick="registerUser()">Тіркелу</button>
+</div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        let myUsername = "";
-        let currentRoom = "Global";
+<script>
+    // ТІРКЕЛУ ФУНКЦИЯСЫ
+    async function registerUser() {
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
 
-        async function auth(type) {
-            const username = document.getElementById('user').value;
-            const password = document.getElementById('pass').value;
-            if(!username || !password) return alert("Толық толтырыңыз");
+        if (!user || !pass) return alert("Логин мен құпия сөзді жазыңыз!");
 
-            const res = await fetch('/' + type, {
+        try {
+            const response = await fetch('/register', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ username, password })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, password: pass })
             });
-            const data = await res.json();
-
+            const data = await response.json();
             if (data.success) {
-                if (type === 'login') {
-                    myUsername = data.username;
-                    document.getElementById('auth-box').style.display = 'none';
-                    document.getElementById('chat-box').style.display = 'flex';
-                    changeRoom();
-                } else {
-                    alert("Тіркелу сәтті! Енді 'Кіру' батырмасын басыңыз.");
-                }
+                alert("Тіркелу сәтті өтті! Енді 'Кіру' батырмасын басыңыз.");
             } else {
-                alert(data.message);
+                alert("Қате: " + data.message);
             }
+        } catch (err) {
+            alert("Серверге қосылу мүмкін емес!");
         }
+    }
 
-        function changeRoom() {
-            const newRoom = document.getElementById('room-id').value || "Global";
-            currentRoom = newRoom;
-            document.getElementById('current-room').innerText = currentRoom;
-            document.getElementById('messages').innerHTML = "";
-            socket.emit('join', { username: myUsername, room: currentRoom });
-        }
+    // КІРУ ФУНКЦИЯСЫ
+    async function loginUser() {
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
 
-        function sendMessage() {
-            const text = document.getElementById('m-text').value;
-            if (text) {
-                socket.emit('message', { room: currentRoom, user: myUsername, text });
-                document.getElementById('m-text').value = "";
+        if (!user || !pass) return alert("Логин мен құпия сөзді жазыңыз!");
+
+        try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, password: pass })
+            });
+            const data = await response.json();
+            if (data.success) {
+                localStorage.setItem('username', data.username);
+                // Чат бетіне (chat.html) өту
+                window.location.href = "chat.html"; 
+            } else {
+                alert("Қате: " + data.message);
             }
+        } catch (err) {
+            alert("Сервер қатесі немесе интернет жоқ!");
         }
+    }
+</script>
 
-        socket.on('msg', (data) => {
-            const div = document.createElement('div');
-            div.innerHTML = `<b>${data.user}:</b> <span>${data.text}</span>`;
-            document.getElementById('messages').appendChild(div);
-        });
-    </script>
 </body>
 </html>
