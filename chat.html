@@ -2,60 +2,84 @@
 <html lang="kk">
 <head>
     <meta charset="UTF-8">
-    <title>Чат бөлмесі</title>
+    <title>Чат - Группалар</title>
     <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; background-color: #e5ddd5; }
-        #chat-container { display: flex; flex-direction: column; height: 100vh; max-width: 600px; margin: 0 auto; background: white; border: 1px solid #ccc; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        .message { background: white; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; width: fit-content; max-width: 80%; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
-        .my-message { background: #dcf8c6; align-self: flex-end; margin-left: auto; }
-        .input-area { display: flex; padding: 10px; background: #f0f0f0; }
-        input { flex: 1; padding: 12px; border-radius: 20px; border: 1px solid #ddd; outline: none; }
-        button { background: #075e54; color: white; border: none; padding: 10px 20px; margin-left: 10px; border-radius: 20px; cursor: pointer; }
-        .user-label { font-weight: bold; font-size: 12px; color: #075e54; display: block; margin-bottom: 2px; }
+        body { display: flex; height: 100vh; margin: 0; font-family: sans-serif; background: #121212; color: white; }
+        .sidebar { width: 300px; background: #1e1e1e; border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .search-area { padding: 20px; background: #252525; }
+        .search-area input { width: 100%; padding: 10px; border-radius: 5px; border: none; background: #333; color: white; outline: none; }
+        .room-list { flex: 1; overflow-y: auto; }
+        .room { padding: 15px; cursor: pointer; border-bottom: 1px solid #252525; transition: 0.2s; }
+        .room:hover, .room.active { background: #333; border-left: 4px solid #00d2ff; }
+        
+        .chat-main { flex: 1; display: flex; flex-direction: column; }
+        .chat-header { padding: 15px 25px; background: #1e1e1e; font-weight: bold; border-bottom: 1px solid #333; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 10px 15px; border-radius: 12px; max-width: 70%; line-height: 1.4; }
+        .msg.in { background: #2c2c2c; align-self: flex-start; }
+        .msg.out { background: #0088cc; align-self: flex-end; }
+        .u-name { font-size: 11px; color: #888; margin-bottom: 4px; display: block; }
+        
+        .input-bar { padding: 20px; background: #1e1e1e; display: flex; gap: 10px; }
+        .input-bar input { flex: 1; padding: 12px; border-radius: 8px; border: none; background: #2c2c2c; color: white; outline: none; }
+        .s-btn { background: #0088cc; border: none; color: white; padding: 0 20px; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
-
-<div id="chat-container">
-    <div id="messages"></div>
-    <div class="input-area">
-        <input type="text" id="m" placeholder="Хабарлама жазыңыз..." autocomplete="off">
-        <button onclick="send()">Жіберу</button>
+    <div class="sidebar">
+        <div class="search-area">
+            <input type="text" id="srch" placeholder="Группаны іздеу..." onkeyup="search()">
+        </div>
+        <div class="room-list">
+            <div class="room active" onclick="joinRoom('Жалпы чат', this)"><b># Жалпы чат</b></div>
+            <div class="room" onclick="joinRoom('Ойындар', this)"><b># Ойындар</b></div>
+            <div class="room" onclick="joinRoom('IT Жаңалықтар', this)"><b># IT Жаңалықтар</b></div>
+        </div>
     </div>
-</div>
+    <div class="chat-main">
+        <div class="chat-header" id="rt">Жалпы чат</div>
+        <div id="messages"></div>
+        <div class="input-bar">
+            <input type="text" id="m" placeholder="Хабарлама..." autocomplete="off">
+            <button class="s-btn" onclick="send()">Жіберу</button>
+        </div>
+    </div>
+    <script>
+        const socket = io();
+        const username = localStorage.getItem('username') || 'Қонақ';
+        let room = 'Жалпы чат';
+        socket.emit('join', { room, user: username });
 
-<script>
-    const socket = io();
-    const username = localStorage.getItem('username') || 'Қонақ';
-    const messagesDiv = document.getElementById('messages');
-
-    // Серверге қосылу
-    socket.emit('join', { room: 'main', user: username });
-
-    function send() {
-        const input = document.getElementById('m');
-        if (input.value.trim() !== "") {
-            socket.emit('message', { room: 'main', user: username, text: input.value });
-            input.value = '';
+        function joinRoom(n, el) {
+            room = n; document.getElementById('rt').innerText = n;
+            document.querySelectorAll('.room').forEach(r => r.classList.remove('active'));
+            el.classList.add('active');
+            document.getElementById('messages').innerHTML = '';
+            socket.emit('join', { room, user: username });
         }
-    }
-
-    socket.on('msg', (data) => {
-        const div = document.createElement('div');
-        div.classList.add('message');
-        if (data.user === username) div.classList.add('my-message');
-        
-        div.innerHTML = `<span class="user-label">${data.user}</span>${data.text}`;
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
-
-    document.getElementById('m').addEventListener("keypress", (e) => {
-        if (e.key === "Enter") send();
-    });
-</script>
-
+        function send() {
+            const i = document.getElementById('m');
+            if(i.value.trim()){
+                socket.emit('message', { room, user: username, text: i.value });
+                i.value = '';
+            }
+        }
+        socket.on('msg', (d) => {
+            const b = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = `msg ${d.user === username ? 'out' : 'in'}`;
+            div.innerHTML = `<span class="u-name">${d.user}</span>${d.text}`;
+            b.appendChild(div); b.scrollTop = b.scrollHeight;
+        });
+        function search() {
+            let v = document.getElementById('srch').value.toLowerCase();
+            document.querySelectorAll('.room').forEach(r => {
+                r.style.display = r.innerText.toLowerCase().includes(v) ? "block" : "none";
+            });
+        }
+        document.getElementById('m').addEventListener("keypress", e => e.key==="Enter" && send());
+    </script>
 </body>
 </html>

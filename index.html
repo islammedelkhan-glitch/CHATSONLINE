@@ -2,67 +2,43 @@
 <html lang="kk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Чатқа қосылу</title>
+    <title>ChatOnline - Кіру</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; margin: 0; }
-        .auth-container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
-        h2 { color: #1c1e21; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; margin-top: 10px; }
-        .login-btn { background: #007bff; color: white; }
-        .login-btn:hover { background: #0056b3; }
-        .reg-btn { background: #28a745; color: white; }
-        .reg-btn:hover { background: #218838; }
+        body { background: #0f0c29; height: 100vh; display: flex; align-items: center; justify-content: center; font-family: sans-serif; margin: 0; }
+        .card { background: rgba(255,255,255,0.1); padding: 40px; border-radius: 20px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); width: 320px; text-align: center; }
+        h2 { color: white; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: rgba(255,255,255,0.2); color: white; outline: none; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+        .btn-l { background: #00d2ff; color: white; }
+        .btn-r { background: transparent; color: #00d2ff; border: 1px solid #00d2ff; }
+        button:hover { opacity: 0.8; transform: scale(1.02); }
     </style>
 </head>
 <body>
-
-<div class="auth-container">
-    <h2>Қош келдіңіз!</h2>
-    <input type="text" id="username" placeholder="Логин (атыңыз)">
-    <input type="password" id="password" placeholder="Құпия сөз">
-    
-    <button class="login-btn" onclick="auth('/login')">Кіру</button>
-    <button class="reg-btn" onclick="auth('/register')">Тіркелу</button>
-</div>
-
-<script>
-    async function auth(url) {
-        const user = document.getElementById('username').value;
-        const pass = document.getElementById('password').value;
-
-        if (!user || !pass) {
-            alert("Барлық жолақты толтырыңыз!");
-            return;
-        }
-
-        try {
-            const response = await fetch(url, {
+    <div class="card">
+        <h2>ChatOnline</h2>
+        <input type="text" id="u" placeholder="Логин">
+        <input type="password" id="p" placeholder="Құпия сөз">
+        <button class="btn-l" onclick="auth('/login')">Кіру</button>
+        <button class="btn-r" onclick="auth('/register')">Тіркелу</button>
+    </div>
+    <script>
+        async function auth(path) {
+            const username = document.getElementById('u').value;
+            const password = document.getElementById('p').value;
+            const res = await fetch(path, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: user, password: pass })
+                body: JSON.stringify({ username, password })
             });
-            
-            const data = await response.json();
-
-            if (data.success) {
-                if (url === '/login') {
-                    // Атыңызды сақтап, чатқа өтеміз
+            const data = await res.json();
+            if(data.success) {
+                if(path === '/login') {
                     localStorage.setItem('username', data.username);
                     window.location.href = "/chat.html";
-                } else {
-                    alert("Тіркелу сәтті! Енді 'Кіру' батырмасын басыңыз.");
-                }
-            } else {
-                alert("Қате: " + data.message);
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Сервермен байланыс жоқ!");
+                } else alert("Дайын! Енді кіріңіз.");
+            } else alert(data.message);
         }
-    }
-</script>
-
+    </script>
 </body>
 </html>

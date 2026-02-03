@@ -7,7 +7,6 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 
 app.use(express.json());
-// Барлық файлдарды (html, css, js) ашуға рұқсат
 app.use(express.static(path.join(__dirname)));
 
 const mongoURI = "mongodb+srv://islammedelkhan_db_user:sVjFAe30NltnT5Cd@cluster0.qmvz3zc.mongodb.net/chatDB?retryWrites=true&w=majority&appName=Cluster0"; 
@@ -22,16 +21,6 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', UserSchema);
 
-// Басты бетті жіберу
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Чат бетін жіберу (Осы жерде қате кеткен болуы мүмкін)
-app.get('/chat.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'chat.html'));
-});
-
 app.post('/register', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -39,9 +28,7 @@ app.post('/register', async (req, res) => {
         const newUser = new User({ username, password: hashedPassword });
         await newUser.save();
         res.json({ success: true });
-    } catch (err) {
-        res.json({ success: false, message: "Логин бос емес" });
-    }
+    } catch (err) { res.json({ success: false, message: "Логин бос емес" }); }
 });
 
 app.post('/login', async (req, res) => {
@@ -50,12 +37,8 @@ app.post('/login', async (req, res) => {
         const user = await User.findOne({ username });
         if (user && await bcrypt.compare(password, user.password)) {
             res.json({ success: true, username: user.username });
-        } else {
-            res.json({ success: false, message: "Қате логин не пароль" });
-        }
-    } catch (err) {
-        res.json({ success: false, message: "Сервер қатесі" });
-    }
+        } else { res.json({ success: false, message: "Қате мәлімет" }); }
+    } catch (err) { res.json({ success: false, message: "Сервер қатесі" }); }
 });
 
 io.on('connection', (socket) => {
