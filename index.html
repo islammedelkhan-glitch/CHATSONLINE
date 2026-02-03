@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Менің чатым</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; }
+        #login-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        #chat-container { display: none; width: 400px; height: 500px; background: white; flex-direction: column; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        #messages { flex: 1; overflow-y: auto; padding: 10px; list-style: none; margin: 0; }
+        #form { display: flex; padding: 10px; border-top: 1px solid #ddd; }
+        #input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; outline: none; }
+        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="login-container">
+        <h2>Чатқа кіру</h2>
+        <input type="text" id="username" placeholder="Атыңызды жазыңыз..." style="padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
+        <button onclick="enterChat()">Кіру</button>
+    </div>
+
+    <div id="chat-container">
+        <ul id="messages"></ul>
+        <form id="form">
+            <input id="input" autocomplete="off" placeholder="Хабарлама..." />
+            <button>Жіберу</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        var socket = io();
+        var username = "";
+
+        function enterChat() {
+            var inputName = document.getElementById('username').value;
+            if (inputName.trim() !== "") {
+                username = inputName;
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('chat-container').style.display = 'flex';
+            }
+        }
+
+        var form = document.getElementById('form');
+        var input = document.getElementById('input');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (input.value && username) {
+                socket.emit('chat message', { user: username, text: input.value });
+                input.value = '';
+            }
+        });
+
+        socket.on('chat history', function(msgs) {
+            msgs.forEach(msg => addMessage(msg));
+        });
+
+        socket.on('chat message', function(msg) {
+            addMessage(msg);
+        });
+
+        function addMessage(msg) {
+            var item = document.createElement('li');
+            item.innerHTML = `<b>${msg.user}:</b> ${msg.text}`;
+            document.getElementById('messages').appendChild(item);
+            var objDiv = document.getElementById("messages");
+            objDiv.scrollTop = objDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>
