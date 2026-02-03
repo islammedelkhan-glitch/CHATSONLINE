@@ -1,32 +1,31 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="kk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger Online</title>
+    <title>My Chat Pro</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="auth-box">
-        <h1>Messenger</h1>
+        <h2>Кіру / Тіркелу</h2>
         <input type="text" id="user" placeholder="Логин">
         <input type="password" id="pass" placeholder="Пароль">
-        <button onclick="auth('login')">Войти</button>
-        <button onclick="auth('register')" style="background: #555;">Регистрация</button>
+        <button onclick="auth('login')">Кіру</button>
+        <button onclick="auth('register')" style="background: #666;">Тіркелу</button>
     </div>
 
     <div id="chat-box" style="display: none;">
         <div class="sidebar">
-            <h4>Поиск друга / Группы</h4>
-            <input type="text" id="room-id" placeholder="ID друга или имя комнаты">
-            <button onclick="changeRoom()">Найти и войти</button>
-            <hr>
-            <p>Сейчас в: <b id="current-room">Global</b></p>
+            <h3>Чат</h3>
+            <input type="text" id="room-id" placeholder="Бөлме атауы немесе ID">
+            <button onclick="changeRoom()">Қосылу</button>
+            <p>Бөлме: <b id="current-room">Global</b></p>
         </div>
         <div class="main">
             <div id="messages"></div>
             <div class="footer">
-                <input type="text" id="m-text" placeholder="Введите сообщение...">
+                <input type="text" id="m-text" placeholder="Хабарлама жазу...">
                 <button onclick="sendMessage()">➤</button>
             </div>
         </div>
@@ -41,7 +40,7 @@
         async function auth(type) {
             const username = document.getElementById('user').value;
             const password = document.getElementById('pass').value;
-            if(!username || !password) return alert("Заполните поля");
+            if(!username || !password) return alert("Толық толтырыңыз");
 
             const res = await fetch('/' + type, {
                 method: 'POST',
@@ -57,7 +56,7 @@
                     document.getElementById('chat-box').style.display = 'flex';
                     changeRoom();
                 } else {
-                    alert("Регистрация успешна! Теперь нажми Войти.");
+                    alert("Тіркелу сәтті! Енді 'Кіру' батырмасын басыңыз.");
                 }
             } else {
                 alert(data.message);
@@ -82,10 +81,8 @@
 
         socket.on('msg', (data) => {
             const div = document.createElement('div');
-            div.className = 'message';
             div.innerHTML = `<b>${data.user}:</b> <span>${data.text}</span>`;
             document.getElementById('messages').appendChild(div);
-            document.getElementById('messages').scrollTop = 9999;
         });
     </script>
 </body>

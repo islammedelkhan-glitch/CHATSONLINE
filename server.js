@@ -2,40 +2,56 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const path = require('path');
 
-// Настройка базы данных
-let db;
-(async () => {
-    db = await open({
-        filename: 'chat.db',
-        driver: sqlite3.Database
+app.use(express.json());
+app.use(express.static(__dirname));
+
+// МОНГО СІЛТЕМЕСІ
+const mongoURI = "mongodb+srv://islammedelkhan_db_user:sVjFAe30NltnT5Cd@cluster0.qmvz3zc.mongodb.net/chatDB?retryWrites=true&w=majority&appName=Cluster0"; 
+
+mongoose.connect(mongoURI)
+    .then(() => console.log("MongoDB қосылды!"))
+    .catch(err => console.log("БД қатесі:", err));
+
+const UserSchema = new mongoose.Schema({
+    username: { type: String, unique: true, required: true },
+    password: { type: String, required: true }
+});
+const User = mongoose.model('User', UserSchema);
+
+app.post('/register', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = new User({ username, password: hashedPassword });
+        await newUser.save();
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, message: "Логин бос емес" });
+    }
+});
+
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+    if (user && await bcrypt.compare(password, user.password)) {
+        res.json({ success: true, username: user.username });
+    } else {
+        res.json({ success: false, message: "Қате логин не пароль" });
+    }
+});
+
+io.on('connection', (socket) => {
+    socket.on('join', (data) => {
+        socket.join(data.room);
     });
-    // Создаем таблицу, если её нет
-    await db.exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, user TEXT, text TEXT)');
-})();
-
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
-});
-
-io.on('connection', async (socket) => {
-    console.log('Пользователь подключился');
-
-    // 1. Отправляем историю сообщений новому пользователю
-    const messages = await db.all('SELECT user, text FROM messages');
-    socket.emit('chat history', messages);
-
-    // 2. Обработка нового сообщения
-    socket.on('chat message', async (msg) => {
-        // Сохраняем в базу данных
-        await db.run('INSERT INTO messages (user, text) VALUES (?, ?)', [msg.user, msg.text]);
-        // Рассылаем всем
-        io.emit('chat message', msg);
+    socket.on('message', (data) => {
+        io.to(data.room).emit('msg', { user: data.user, text: data.text });
     });
 });
 
-http.listen(3000, () => {
-    console.log('Сервер с базой данных запущен: http://localhost:3000');
-});
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, () => console.log(`Сервер ${PORT} портында`));
