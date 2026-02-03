@@ -11,9 +11,7 @@ app.use(express.static(path.join(__dirname)));
 
 const mongoURI = "mongodb+srv://islammedelkhan_db_user:sVjFAe30NltnT5Cd@cluster0.qmvz3zc.mongodb.net/chatDB?retryWrites=true&w=majority&appName=Cluster0"; 
 
-mongoose.connect(mongoURI)
-    .then(() => console.log("MongoDB қосылды!"))
-    .catch(err => console.error("БД қатесі:", err));
+mongoose.connect(mongoURI).then(() => console.log("MongoDB қосылды!"));
 
 const UserSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
@@ -21,32 +19,34 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', UserSchema);
 
+// ПАЙДАЛАНУШЫЛАРДЫ ЛОГИН БОЙЫНША ІЗДЕУ
+app.get('/search-user', async (req, res) => {
+    const query = req.query.username;
+    const users = await User.find({ username: { $regex: query, $options: 'i' } }).limit(5);
+    res.json(users.map(u => u.username));
+});
+
 app.post('/register', async (req, res) => {
     try {
         const { username, password } = req.body;
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({ username, password: hashedPassword });
-        await newUser.save();
+        await new User({ username, password: hashedPassword }).save();
         res.json({ success: true });
-    } catch (err) { res.json({ success: false, message: "Логин бос емес" }); }
+    } catch (err) { res.json({ success: false, message: "Қате" }); }
 });
 
 app.post('/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        const user = await User.findOne({ username });
-        if (user && await bcrypt.compare(password, user.password)) {
-            res.json({ success: true, username: user.username });
-        } else { res.json({ success: false, message: "Қате мәлімет" }); }
-    } catch (err) { res.json({ success: false, message: "Сервер қатесі" }); }
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+    if (user && await bcrypt.compare(password, user.password)) {
+        res.json({ success: true, username: user.username });
+    } else { res.json({ success: false }); }
 });
 
 io.on('connection', (socket) => {
     socket.on('join', (data) => socket.join(data.room));
-    socket.on('message', (data) => {
-        io.to(data.room).emit('msg', { user: data.user, text: data.text });
-    });
+    socket.on('message', (data) => io.to(data.room).emit('msg', data));
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Сервер істеп тұр: ${PORT}`));
+http.listen(PORT, () => console.log(`Сервер: ${PORT}`));
