@@ -1,74 +1,92 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Менің чатым</title>
-    <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; }
-        #login-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
-        #chat-container { display: none; width: 400px; height: 500px; background: white; flex-direction: column; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        #messages { flex: 1; overflow-y: auto; padding: 10px; list-style: none; margin: 0; }
-        #form { display: flex; padding: 10px; border-top: 1px solid #ddd; }
-        #input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; outline: none; }
-        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 5px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messenger Online</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-    <div id="login-container">
-        <h2>Чатқа кіру</h2>
-        <input type="text" id="username" placeholder="Атыңызды жазыңыз..." style="padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
-        <button onclick="enterChat()">Кіру</button>
+    <div id="auth-box">
+        <h1>Messenger</h1>
+        <input type="text" id="user" placeholder="Логин">
+        <input type="password" id="pass" placeholder="Пароль">
+        <button onclick="auth('login')">Войти</button>
+        <button onclick="auth('register')" style="background: #555;">Регистрация</button>
     </div>
 
-    <div id="chat-container">
-        <ul id="messages"></ul>
-        <form id="form">
-            <input id="input" autocomplete="off" placeholder="Хабарлама..." />
-            <button>Жіберу</button>
-        </form>
+    <div id="chat-box" style="display: none;">
+        <div class="sidebar">
+            <h4>Поиск друга / Группы</h4>
+            <input type="text" id="room-id" placeholder="ID друга или имя комнаты">
+            <button onclick="changeRoom()">Найти и войти</button>
+            <hr>
+            <p>Сейчас в: <b id="current-room">Global</b></p>
+        </div>
+        <div class="main">
+            <div id="messages"></div>
+            <div class="footer">
+                <input type="text" id="m-text" placeholder="Введите сообщение...">
+                <button onclick="sendMessage()">➤</button>
+            </div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        var socket = io();
-        var username = "";
+        const socket = io();
+        let myUsername = "";
+        let currentRoom = "Global";
 
-        function enterChat() {
-            var inputName = document.getElementById('username').value;
-            if (inputName.trim() !== "") {
-                username = inputName;
-                document.getElementById('login-container').style.display = 'none';
-                document.getElementById('chat-container').style.display = 'flex';
+        async function auth(type) {
+            const username = document.getElementById('user').value;
+            const password = document.getElementById('pass').value;
+            if(!username || !password) return alert("Заполните поля");
+
+            const res = await fetch('/' + type, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                if (type === 'login') {
+                    myUsername = data.username;
+                    document.getElementById('auth-box').style.display = 'none';
+                    document.getElementById('chat-box').style.display = 'flex';
+                    changeRoom();
+                } else {
+                    alert("Регистрация успешна! Теперь нажми Войти.");
+                }
+            } else {
+                alert(data.message);
             }
         }
 
-        var form = document.getElementById('form');
-        var input = document.getElementById('input');
-
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            if (input.value && username) {
-                socket.emit('chat message', { user: username, text: input.value });
-                input.value = '';
-            }
-        });
-
-        socket.on('chat history', function(msgs) {
-            msgs.forEach(msg => addMessage(msg));
-        });
-
-        socket.on('chat message', function(msg) {
-            addMessage(msg);
-        });
-
-        function addMessage(msg) {
-            var item = document.createElement('li');
-            item.innerHTML = `<b>${msg.user}:</b> ${msg.text}`;
-            document.getElementById('messages').appendChild(item);
-            var objDiv = document.getElementById("messages");
-            objDiv.scrollTop = objDiv.scrollHeight;
+        function changeRoom() {
+            const newRoom = document.getElementById('room-id').value || "Global";
+            currentRoom = newRoom;
+            document.getElementById('current-room').innerText = currentRoom;
+            document.getElementById('messages').innerHTML = "";
+            socket.emit('join', { username: myUsername, room: currentRoom });
         }
+
+        function sendMessage() {
+            const text = document.getElementById('m-text').value;
+            if (text) {
+                socket.emit('message', { room: currentRoom, user: myUsername, text });
+                document.getElementById('m-text').value = "";
+            }
+        }
+
+        socket.on('msg', (data) => {
+            const div = document.createElement('div');
+            div.className = 'message';
+            div.innerHTML = `<b>${data.user}:</b> <span>${data.text}</span>`;
+            document.getElementById('messages').appendChild(div);
+            document.getElementById('messages').scrollTop = 9999;
+        });
     </script>
 </body>
 </html>
