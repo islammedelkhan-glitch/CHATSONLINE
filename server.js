@@ -7,38 +7,43 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 
 app.use(express.json());
-app.use(express.static(__dirname));
+// Барлық файлдарды (html, css, js) ашуға рұқсат
+app.use(express.static(path.join(__dirname)));
 
-// MongoDB сілтемесі
 const mongoURI = "mongodb+srv://islammedelkhan_db_user:sVjFAe30NltnT5Cd@cluster0.qmvz3zc.mongodb.net/chatDB?retryWrites=true&w=majority&appName=Cluster0"; 
 
 mongoose.connect(mongoURI)
     .then(() => console.log("MongoDB қосылды!"))
     .catch(err => console.error("БД қатесі:", err));
 
-// Пайдаланушы моделі
 const UserSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     password: { type: String, required: true }
 });
 const User = mongoose.model('User', UserSchema);
 
-// Тіркелу
+// Басты бетті жіберу
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Чат бетін жіберу (Осы жерде қате кеткен болуы мүмкін)
+app.get('/chat.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'chat.html'));
+});
+
 app.post('/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        if (!username || !password) return res.json({ success: false, message: "Деректер толық емес" });
-        
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ username, password: hashedPassword });
         await newUser.save();
         res.json({ success: true });
     } catch (err) {
-        res.json({ success: false, message: "Бұл логин бос емес" });
+        res.json({ success: false, message: "Логин бос емес" });
     }
 });
 
-// Кіру
 app.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -61,4 +66,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Сервер ${PORT} портында қосылды`));
+http.listen(PORT, () => console.log(`Сервер істеп тұр: ${PORT}`));
