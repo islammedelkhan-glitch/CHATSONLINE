@@ -16,27 +16,24 @@
         <h2 id="title">Кіру</h2>
         <input type="text" id="user" placeholder="Логин">
         <input type="password" id="pass" placeholder="Құпия сөз">
-        <button onclick="authAction()">Растау</button>
+        <button type="button" onclick="authAction()">Растау</button>
         <div class="toggle" onclick="switchMode()" id="toggle-text">Аккаунт жасау</div>
     </div>
 
     <script>
         let isLogin = true;
-
         function switchMode() {
             isLogin = !isLogin;
             document.getElementById('title').innerText = isLogin ? "Кіру" : "Тіркелу";
-            document.getElementById('toggle-text').innerText = isLogin ? "Кіруге қайту" : "Аккаунт жасау";
+            document.getElementById('toggle-text').innerText = isLogin ? "Аккаунт жасау" : "Кіруге қайту";
         }
 
         async function authAction() {
             const u = document.getElementById('user').value;
             const p = document.getElementById('pass').value;
-
-            if (!u || !p) return alert("Толық толтырыңыз!");
+            if (!u || !p) return alert("Толтырыңыз!");
 
             const url = isLogin ? '/login' : '/register';
-            
             try {
                 const res = await fetch(url, {
                     method: 'POST',
@@ -44,22 +41,16 @@
                     body: JSON.stringify({username: u, password: p})
                 });
                 const data = await res.json();
-                
                 if(data.success) {
                     if(isLogin) {
-                        localStorage.setItem('username', data.username);
-                        window.location.href = '/chat.html'; // Чат бетіне өту
+                        localStorage.setItem('username', u);
+                        window.location.href = 'chat.html';
                     } else {
-                        alert("Тіркелдіңіз! Енді кіріңіз.");
+                        alert("Сәтті тіркелдіңіз! Енді кіріңіз.");
                         switchMode();
                     }
-                } else {
-                    alert("Қате! Логин бос емес немесе пароль қате.");
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Сервермен байланыс жоқ!");
-            }
+                } else { alert("Қате: Логин немесе пароль дұрыс емес!"); }
+            } catch(e) { alert("Сервермен байланыс жоқ!"); }
         }
     </script>
 </body>
