@@ -6,9 +6,10 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.6.1",
-    "mongoose": "^7.0.3",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "express": "^4.22.1",
+    "mongoose": "^7.8.9",
+    "multer": "^2.0.2",
+    "socket.io": "^4.8.3"
   }
 }
