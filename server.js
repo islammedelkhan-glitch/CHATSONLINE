@@ -20,8 +20,7 @@ mongoose.connect(mongoURI).then(() => console.log("MongoDB қосылды!"));
 const UserSchema = new mongoose.Schema({
     username: { type: String, unique: true },
     password: { type: String },
-    avatar: { type: String, default: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' },
-    hiddenChats: [{ target: String, code: String }]
+    avatar: { type: String, default: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }
 });
 const User = mongoose.model('User', UserSchema);
 
@@ -49,22 +48,12 @@ app.post('/login', async (req, res) => {
 app.post('/upload', upload.single('file'), (req, res) => {
     if (req.file) {
         res.json({ url: `/uploads/${req.file.filename}`, type: req.file.mimetype });
-    } else {
-        res.json({ success: false });
-    }
+    } else { res.json({ success: false }); }
 });
 
 app.get('/search', async (req, res) => {
-    const me = await User.findOne({ username: req.query.user });
-    if(!me) return res.json({type: 'public', data: []});
-    
-    const hidden = me.hiddenChats.filter(c => c.code === req.query.q);
-    if (hidden.length > 0) {
-        res.json({ type: 'hidden', data: hidden.map(h => h.target) });
-    } else {
-        const users = await User.find({ username: { $regex: req.query.q, $options: 'i' } }).limit(5);
-        res.json({ type: 'public', data: users.map(u => ({ name: u.username, avatar: u.avatar })) });
-    }
+    const users = await User.find({ username: { $regex: req.query.q, $options: 'i' } }).limit(5);
+    res.json({ data: users.map(u => u.username) });
 });
 
 io.on('connection', (socket) => {
@@ -75,4 +64,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Сервер ${PORT} портында іске қосылды!`));
+http.listen(PORT, () => console.log(`Сервер ${PORT} портында қосылды!`));

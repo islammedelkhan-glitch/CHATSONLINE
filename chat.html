@@ -9,87 +9,74 @@
     <style>
         body { margin: 0; background: #0b141a; color: white; font-family: sans-serif; display: flex; height: 100vh; }
         .side { width: 300px; background: #111b21; border-right: 1px solid #222d32; display: flex; flex-direction: column; }
-        .contact { padding: 15px; border-bottom: 1px solid #1c262d; cursor: pointer; transition: 0.3s; }
+        .contact { padding: 15px; border-bottom: 1px solid #1c262d; cursor: pointer; }
         .contact:hover { background: #202c33; }
-        .main { flex: 1; display: flex; flex-direction: column; background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
+        .main { flex: 1; display: flex; flex-direction: column; background: #0b141a; }
         .header { padding: 15px 20px; background: #202c33; display: flex; justify-content: space-between; align-items: center; }
         #msgs { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .bubble { padding: 8px 15px; border-radius: 10px; max-width: 70%; word-wrap: break-word; }
+        .bubble { padding: 10px 15px; border-radius: 10px; max-width: 70%; word-wrap: break-word; }
         .sent { background: #005c4b; align-self: flex-end; }
         .rec { background: #202c33; align-self: flex-start; }
         .footer { padding: 10px; background: #202c33; display: flex; gap: 10px; align-items: center; }
-        #video-screen { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
-        video { width: 300px; height: 200px; border-radius: 10px; background: #222; margin: 10px; object-fit: cover; }
-        img.chat-img { max-width: 200px; border-radius: 10px; margin-top: 5px; }
+        #video-screen { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+        video { width: 320px; border-radius: 10px; background: #222; margin: 10px; }
+        img.chat-img { max-width: 250px; border-radius: 10px; margin-top: 5px; display: block; }
     </style>
 </head>
 <body>
 
 <div id="video-screen">
-    <h2 id="call-status">Звонок...</h2>
+    <h2 id="st">Звондау...</h2>
     <div style="display:flex; flex-wrap:wrap; justify-content:center;">
         <video id="me" muted autoplay></video>
         <video id="remote" autoplay></video>
     </div>
-    <button onclick="endCall()" style="margin-top:20px; padding:12px 40px; background:#ff3b30; color:white; border:none; border-radius:30px; cursor:pointer; font-weight:bold;">Тұтқаны қою</button>
+    <button onclick="location.reload()" style="margin-top:20px; padding:10px 40px; background:red; color:white; border:none; border-radius:20px; cursor:pointer;">Аяқтау</button>
 </div>
 
 <div class="side">
-    <div style="padding:15px; background:#202c33;"><b>Мен: <span id="my-id-display">...</span></b></div>
-    <div style="padding:10px;">
-        <input type="text" placeholder="Адам іздеу..." onkeyup="search(this.value)" style="width:100%; padding:10px; border-radius:8px; background:#2a3942; color:white; border:none; box-sizing:border-box;">
-    </div>
+    <div style="padding:15px; background:#202c33;">Мен: <b id="my-name"></b></div>
+    <div style="padding:10px;"><input type="text" placeholder="Іздеу..." onkeyup="search(this.value)" style="width:100%; padding:10px; border-radius:8px; background:#2a3942; color:white; border:none;"></div>
     <div id="results"></div>
 </div>
 
 <div class="main">
     <div class="header">
-        <b id="active-name">Кіммен сөйлесесіз?</b>
-        <div style="color:#00a884; font-size: 20px;">
-            <i class="fas fa-video" onclick="makeCall()" style="cursor:pointer;"></i>
-        </div>
+        <b id="active-name">Чатты таңдаңыз</b>
+        <i class="fas fa-video" onclick="makeCall()" style="color:#00a884; cursor:pointer; font-size:20px;"></i>
     </div>
     <div id="msgs"></div>
     <div class="footer">
-        <label style="cursor:pointer; color:#8696a0; font-size:20px;"><i class="fas fa-paperclip"></i><input type="file" hidden onchange="sendFile(this)"></label>
-        <input type="text" id="inp" placeholder="Хабарлама жазыңыз..." style="flex:1; padding:12px; border-radius:20px; border:none; background:#2a3942; color:white; outline:none;">
-        <button onclick="sendMsg()" style="background:none; border:none; color:#00a884; font-size:22px; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
+        <label style="cursor:pointer;"><i class="fas fa-image"></i><input type="file" hidden onchange="sendFile(this)"></label>
+        <input type="text" id="inp" placeholder="Хабарлама..." style="flex:1; padding:10px; border-radius:20px; border:none; background:#2a3942; color:white;">
+        <button onclick="send()" style="background:none; border:none; color:#00a884; font-size:20px; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
     </div>
 </div>
 
 <script>
     const socket = io();
     const myName = localStorage.getItem('username');
-    document.getElementById('my-id-display').innerText = myName;
+    document.getElementById('my-name').innerText = myName;
 
-    let active = '';
-    let myStream;
-    const peer = new Peer(myName);
+    let active = '', myStream;
+    const peer = new Peer(myName, { host: '0.peerjs.com', port: 443, secure: true, pingInterval: 5000 });
 
-    // Камераға рұқсат алу
-    navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
-        myStream = stream;
-        document.getElementById('me').srcObject = stream;
-    }).catch(err => console.error("Камераға рұқсат жоқ:", err));
+    navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(s => {
+        myStream = s; document.getElementById('me').srcObject = s;
+    });
 
     socket.emit('join', myName);
 
-    // Хабарлама қабылдау (Барлық хабарлама осы жерден өтеді)
+    // Хабарлама қабылдау
     socket.on('msg', d => {
-        const div = document.createElement('div');
-        div.className = `bubble ${d.from === myName ? 'sent' : 'rec'}`;
-        
-        if (d.text) div.innerHTML = `<div>${d.text}</div>`;
-        if (d.file) {
-            if (d.fType && d.fType.includes('image')) {
-                div.innerHTML += `<img src="${d.file}" class="chat-img">`;
-            } else {
-                div.innerHTML += `<a href="${d.file}" target="_blank" style="color:#34b7f1">Файл: Көру</a>`;
-            }
-        }
-        
-        // Тек активті чаттағы немесе өзім жіберген хабарламаны көрсету
         if (d.from === active || d.from === myName || d.to === myName) {
+            const div = document.createElement('div');
+            div.className = `bubble ${d.from === myName ? 'sent' : 'rec'}`;
+            if (d.text) div.innerHTML = `<div>${d.text}</div>`;
+            if (d.file) {
+                if (d.fType.includes('image')) div.innerHTML += `<img src="${d.file}" class="chat-img">`;
+                else div.innerHTML += `<a href="${d.file}" target="_blank" style="color:#00a884">Файл</a>`;
+            }
             document.getElementById('msgs').appendChild(div);
             document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
         }
@@ -99,39 +86,27 @@
     peer.on('call', call => {
         if (confirm(call.peer + " звондап тұр. Жауап бересіз бе?")) {
             document.getElementById('video-screen').style.display = 'flex';
-            document.getElementById('call-status').innerText = "Сөйлесуде: " + call.peer;
             call.answer(myStream);
-            call.on('stream', remoteStream => {
-                document.getElementById('remote').srcObject = remoteStream;
-            });
+            call.on('stream', rs => { document.getElementById('remote').srcObject = rs; });
         }
     });
 
     function makeCall() {
-        if (!active) return alert("Алдымен адам таңдаңыз!");
+        if (!active) return alert("Адам таңдаңыз!");
         document.getElementById('video-screen').style.display = 'flex';
-        document.getElementById('call-status').innerText = "Звондау: " + active;
         const call = peer.call(active, myStream);
-        call.on('stream', remoteStream => {
-            document.getElementById('remote').srcObject = remoteStream;
-        });
-    }
-
-    function endCall() {
-        location.reload(); // Звонокты үзудің ең оңай жолы
+        call.on('stream', rs => { document.getElementById('remote').srcObject = rs; });
     }
 
     async function search(q) {
         if (!q) return;
-        const res = await fetch(`/search?q=${q}&user=${myName}`);
+        const res = await fetch(`/search?q=${q}`);
         const data = await res.json();
         const cont = document.getElementById('results');
         cont.innerHTML = '';
-        data.data.forEach(u => {
-            const name = typeof u === 'string' ? u : u.name;
+        data.data.forEach(name => {
             const d = document.createElement('div');
-            d.className = 'contact';
-            d.innerHTML = `<b>${name}</b>`;
+            d.className = 'contact'; d.innerHTML = `<b>${name}</b>`;
             d.onclick = () => {
                 active = name;
                 document.getElementById('active-name').innerText = name;
@@ -142,13 +117,11 @@
         });
     }
 
-    function sendMsg() {
+    function send() {
         const i = document.getElementById('inp');
         if (i.value && active) {
             socket.emit('msg', {to: active, from: myName, text: i.value});
             i.value = '';
-        } else if (!active) {
-            alert("Алдымен адамды іздеп, таңдаңыз!");
         }
     }
 
