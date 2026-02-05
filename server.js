@@ -92,5 +92,9 @@ io.on('connection', (socket) => {
     socket.on('msg', (d) => io.to(d.to).to(d.from).emit('msg', d));
 });
 
+<<<<<<< HEAD
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => console.log(`Сервер ${PORT} портында істеп тұр`));
+=======
+http.listen(process.env.PORT || 3000, () => console.log("Сервер іске қосылды!"));
+>>>>>>> ec7c43d98edb395e9b877ddb685e32945130dc2e
