@@ -2,42 +2,64 @@
 <html lang="kk">
 <head>
     <meta charset="UTF-8">
-    <title>ChatOnline - Кіру</title>
+    <title>Messenger - Кіру</title>
     <style>
-        body { background: #0f0c29; height: 100vh; display: flex; align-items: center; justify-content: center; font-family: sans-serif; margin: 0; }
-        .card { background: rgba(255,255,255,0.1); padding: 40px; border-radius: 20px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); width: 320px; text-align: center; }
-        h2 { color: white; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: rgba(255,255,255,0.2); color: white; outline: none; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.3s; }
-        .btn-l { background: #00d2ff; color: white; }
-        .btn-r { background: transparent; color: #00d2ff; border: 1px solid #00d2ff; }
-        button:hover { opacity: 0.8; transform: scale(1.02); }
+        body { background: #0b141a; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .auth-box { background: #111b21; padding: 40px; border-radius: 15px; width: 320px; text-align: center; border: 1px solid #222d32; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #2a3942; color: white; outline: none; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00a884; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .toggle { margin-top: 15px; font-size: 14px; color: #8696a0; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>ChatOnline</h2>
-        <input type="text" id="u" placeholder="Логин">
-        <input type="password" id="p" placeholder="Құпия сөз">
-        <button class="btn-l" onclick="auth('/login')">Кіру</button>
-        <button class="btn-r" onclick="auth('/register')">Тіркелу</button>
+    <div class="auth-box">
+        <h2 id="title">Кіру</h2>
+        <input type="text" id="user" placeholder="Логин">
+        <input type="password" id="pass" placeholder="Құпия сөз">
+        <button onclick="authAction()">Растау</button>
+        <div class="toggle" onclick="switchMode()" id="toggle-text">Аккаунт жасау</div>
     </div>
+
     <script>
-        async function auth(path) {
-            const username = document.getElementById('u').value;
-            const password = document.getElementById('p').value;
-            const res = await fetch(path, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
-            if(data.success) {
-                if(path === '/login') {
-                    localStorage.setItem('username', data.username);
-                    window.location.href = "/chat.html";
-                } else alert("Дайын! Енді кіріңіз.");
-            } else alert(data.message);
+        let isLogin = true;
+
+        function switchMode() {
+            isLogin = !isLogin;
+            document.getElementById('title').innerText = isLogin ? "Кіру" : "Тіркелу";
+            document.getElementById('toggle-text').innerText = isLogin ? "Кіруге қайту" : "Аккаунт жасау";
+        }
+
+        async function authAction() {
+            const u = document.getElementById('user').value;
+            const p = document.getElementById('pass').value;
+
+            if (!u || !p) return alert("Толық толтырыңыз!");
+
+            const url = isLogin ? '/login' : '/register';
+            
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, password: p})
+                });
+                const data = await res.json();
+                
+                if(data.success) {
+                    if(isLogin) {
+                        localStorage.setItem('username', data.username);
+                        window.location.href = '/chat.html'; // Чат бетіне өту
+                    } else {
+                        alert("Тіркелдіңіз! Енді кіріңіз.");
+                        switchMode();
+                    }
+                } else {
+                    alert("Қате! Логин бос емес немесе пароль қате.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Сервермен байланыс жоқ!");
+            }
         }
     </script>
 </body>
