@@ -2,133 +2,151 @@
 <html lang="kk">
 <head>
     <meta charset="UTF-8">
-    <title>Messenger Pro</title>
+    <title>Messenger Pro Max</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { margin: 0; background: #0b141a; color: white; font-family: sans-serif; display: flex; height: 100vh; }
-        .side { width: 300px; background: #111b21; border-right: 1px solid #222d32; display: flex; flex-direction: column; }
-        .contact { padding: 15px; border-bottom: 1px solid #1c262d; cursor: pointer; }
-        .contact:hover { background: #202c33; }
-        .main { flex: 1; display: flex; flex-direction: column; background: #0b141a; }
-        .header { padding: 15px 20px; background: #202c33; display: flex; justify-content: space-between; align-items: center; }
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .bubble { padding: 10px 15px; border-radius: 10px; max-width: 70%; word-wrap: break-word; position: relative; }
+        :root { --bg: #0b141a; }
+        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; height: 100vh; }
+        .side { width: 300px; background: #111b21; border-right: 1px solid #222d32; }
+        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
+        #msgs { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .bubble { padding: 10px; border-radius: 10px; max-width: 70%; }
         .sent { background: #005c4b; align-self: flex-end; }
         .rec { background: #202c33; align-self: flex-start; }
-        .footer { padding: 10px; background: #202c33; display: flex; gap: 10px; align-items: center; }
-        #video-screen { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
-        video { width: 320px; border-radius: 10px; background: #222; margin: 10px; }
-        img.chat-img { max-width: 250px; border-radius: 10px; margin-top: 5px; display: block; }
+        /* 3-себеп: Входящий звонок дизайны */
+        #incoming-modal { display:none; position:fixed; top:20px; right:20px; background:#202c33; padding:20px; border-radius:15px; border:2px solid #00a884; z-index:2000; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% {box-shadow: 0 0 0 0 rgba(0, 168, 132, 0.7);} 70% {box-shadow: 0 0 0 15px rgba(0, 168, 132, 0);} 100% {box-shadow: 0 0 0 0 rgba(0, 168, 132, 0);} }
     </style>
 </head>
-<body>
+<body onload="checkDevice()">
 
-<div id="video-screen">
-    <div style="display:flex; flex-wrap:wrap; justify-content:center;">
-        <video id="me" muted autoplay></video>
-        <video id="remote" autoplay></video>
-    </div>
-    <button onclick="location.reload()" style="margin-top:20px; padding:10px 40px; background:red; color:white; border:none; border-radius:20px;">Аяқтау</button>
+<div id="incoming-modal">
+    <h3 id="caller-name">Біреу звондап тұр...</h3>
+    <button onclick="answerCall(true)" style="background:green; color:white; border:none; padding:10px 20px; border-radius:10px;">Жауап беру</button>
+    <button onclick="answerCall(false)" style="background:red; color:white; border:none; padding:10px 20px; border-radius:10px;">Қабылдамау</button>
+</div>
+
+<div id="device-check" style="position:fixed; inset:0; background:#0b141a; z-index:3000; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+    <h2>Қай құрылғыдан кірдіңіз?</h2>
+    <button onclick="closeDevice('Телефон')" style="padding:15px 40px; margin:10px; border-radius:10px; background:#00a884; color:white; border:none;">📱 Телефон</button>
+    <button onclick="closeDevice('Компьютер')" style="padding:15px 40px; margin:10px; border-radius:10px; background:#202c33; color:white; border:none;">💻 Компьютер</button>
 </div>
 
 <div class="side">
-    <div style="padding:15px; background:#202c33;">Мен: <b id="my-name"></b></div>
-    <div style="padding:10px;"><input type="text" placeholder="Іздеу..." onkeyup="search(this.value)" style="width:100%; padding:10px; border-radius:8px; background:#2a3942; color:white; border:none;"></div>
+    <div style="padding:10px;">
+        <input type="color" onchange="changeTheme(this.value)" title="Тема таңдау"> 🎨
+        <button onclick="showCalls()" title="Звонок тарихы"><i class="fas fa-history"></i></button>
+    </div>
     <div id="results"></div>
 </div>
 
 <div class="main">
-    <div class="header">
-        <b id="active-name">Чатты таңдаңыз</b>
-        <i class="fas fa-video" onclick="makeCall()" style="color:#00a884; cursor:pointer; font-size:20px;"></i>
+    <div class="header" style="padding:15px; background:#202c33; display:flex; justify-content:space-between;">
+        <b id="active-name">Чат</b>
+        <div>
+            <i class="fas fa-phone" onclick="makeCall('audio')" style="margin-right:15px; cursor:pointer;"></i>
+            <i class="fas fa-video" onclick="makeCall('video')" style="cursor:pointer;"></i>
+        </div>
     </div>
     <div id="msgs"></div>
-    <div class="footer">
-        <label style="cursor:pointer;"><i class="fas fa-image"></i><input type="file" hidden onchange="sendFile(this)"></label>
-        <input type="text" id="inp" placeholder="Хабарлама..." style="flex:1; padding:10px; border-radius:20px; border:none; background:#2a3942; color:white;">
-        <button onclick="send()" style="background:none; border:none; color:#00a884; font-size:20px; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
+    <div class="footer" style="padding:10px; display:flex; gap:10px; background:#202c33;">
+        <input type="text" id="inp" style="flex:1; background:#2a3942; border:none; color:white; padding:10px; border-radius:20px;">
+        <button onclick="send()" style="background:none; border:none; color:#00a884; font-size:20px;"><i class="fas fa-paper-plane"></i></button>
     </div>
+</div>
+
+<div id="video-screen" style="display:none; position:fixed; inset:0; background:#000; z-index:1000; flex-direction:column; align-items:center; justify-content:center;">
+    <video id="me" muted autoplay style="width:150px; position:absolute; top:20px; right:20px;"></video>
+    <video id="remote" autoplay style="width:80%"></video>
+    <button onclick="location.reload()" style="background:red; color:white; padding:15px 40px; border-radius:30px; border:none; margin-top:20px;">Аяқтау</button>
 </div>
 
 <script>
     const socket = io();
     const myName = localStorage.getItem('username');
-    document.getElementById('my-name').innerText = myName;
+    let active = '', myStream, currentCall;
+    const peer = new Peer(myName);
 
-    let active = '', myStream;
-    const peer = new Peer(myName, { host: '0.peerjs.com', port: 443, secure: true, pingInterval: 5000 });
-
-    navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(s => {
-        myStream = s; document.getElementById('me').srcObject = s;
-    });
+    function closeDevice(type) {
+        alert(type + " арқылы қосылдыңыз");
+        document.getElementById('device-check').style.display = 'none';
+        navigator.mediaDevices.getUserMedia({video:true, audio:true}).then(s => {
+            myStream = s; document.getElementById('me').srcObject = s;
+        });
+    }
 
     socket.emit('join', myName);
 
-    socket.on('msg', d => {
-        // ШАРТ: Егер хабарлама қазіргі ашық чаттан келсе немесе өзімдікі болса ғана көрсет
-        if (d.from === active || d.from === myName) {
-            const div = document.createElement('div');
-            div.className = `bubble ${d.from === myName ? 'sent' : 'rec'}`;
-            if (d.text) div.innerHTML = `<div>${d.text}</div>`;
-            if (d.file) {
-                if (d.fType.includes('image')) div.innerHTML += `<img src="${d.file}" class="chat-img">`;
-                else div.innerHTML += `<a href="${d.file}" target="_blank" style="color:#00a884">Файл</a>`;
-            }
-            document.getElementById('msgs').appendChild(div);
-            document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
-        }
-    });
+    // 1-себеп: Ескі хабарламаларды жүктеу
+    async function loadHistory(withUser) {
+        const res = await fetch(`/messages?me=${myName}&with=${withUser}`);
+        const data = await res.json();
+        const box = document.getElementById('msgs');
+        box.innerHTML = '';
+        data.forEach(d => displayMsg(d));
+    }
 
+    function displayMsg(d) {
+        const div = document.createElement('div');
+        div.className = `bubble ${d.from === myName ? 'sent' : 'rec'}`;
+        div.innerText = d.text;
+        document.getElementById('msgs').appendChild(div);
+        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+    }
+
+    socket.on('msg', d => { if(d.from === active || d.from === myName) displayMsg(d); });
+
+    // 3-себеп: Звонок келгендегі терезе
     peer.on('call', call => {
-        if (confirm(call.peer + " звондап тұр. Жауап бересіз бе?")) {
-            document.getElementById('video-screen').style.display = 'flex';
-            call.answer(myStream);
-            call.on('stream', rs => { document.getElementById('remote').srcObject = rs; });
-        }
+        currentCall = call;
+        document.getElementById('caller-name').innerText = call.peer + " звондап тұр...";
+        document.getElementById('incoming-modal').style.display = 'block';
+        // Дыбыс шығаруға болады
     });
 
-    function makeCall() {
-        if (!active) return alert("Адам таңдаңыз!");
+    function answerCall(status) {
+        document.getElementById('incoming-modal').style.display = 'none';
+        if(status) {
+            document.getElementById('video-screen').style.display = 'flex';
+            currentCall.answer(myStream);
+            currentCall.on('stream', rs => document.getElementById('remote').srcObject = rs);
+        } else {
+            currentCall.close();
+        }
+    }
+
+    function makeCall(type) {
+        if(!active) return;
+        socket.emit('call-log', {from:myName, to:active, type:type});
         document.getElementById('video-screen').style.display = 'flex';
         const call = peer.call(active, myStream);
-        call.on('stream', rs => { document.getElementById('remote').srcObject = rs; });
+        call.on('stream', rs => document.getElementById('remote').srcObject = rs);
+    }
+
+    async function changeTheme(color) {
+        document.documentElement.style.setProperty('--bg', color);
+        await fetch('/set-theme', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:myName, color:color})});
     }
 
     async function search(q) {
-        if (!q) return;
+        if(!q) return;
         const res = await fetch(`/search?q=${q}`);
         const data = await res.json();
         const cont = document.getElementById('results');
         cont.innerHTML = '';
         data.data.forEach(name => {
             const d = document.createElement('div');
-            d.className = 'contact'; d.innerHTML = `<b>${name}</b>`;
-            d.onclick = () => {
-                active = name;
-                document.getElementById('active-name').innerText = name;
-                document.getElementById('msgs').innerHTML = ''; // Чатты тазалау
-            };
+            d.style.padding = '15px'; d.style.cursor='pointer'; d.innerHTML = `<b>${name}</b>`;
+            d.onclick = () => { active = name; loadHistory(name); };
             cont.appendChild(d);
         });
     }
 
     function send() {
         const i = document.getElementById('inp');
-        if (i.value && active) {
-            socket.emit('msg', {to: active, from: myName, text: i.value});
-            i.value = '';
-        }
-    }
-
-    async function sendFile(input) {
-        if (!active) return alert("Адам таңдаңыз!");
-        const fd = new FormData();
-        fd.append('file', input.files[0]);
-        const res = await fetch('/upload', {method: 'POST', body: fd});
-        const d = await res.json();
-        socket.emit('msg', {to: active, from: myName, file: d.url, fType: d.type});
+        if(i.value && active) { socket.emit('msg', {to:active, from:myName, text:i.value}); i.value = ''; }
     }
 </script>
 </body>
