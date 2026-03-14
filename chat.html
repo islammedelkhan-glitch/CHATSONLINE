@@ -2,149 +2,146 @@
 <html lang="kk">
 <head>
     <meta charset="UTF-8">
-    <title>Messenger Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Clone</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root { --main-bg: #0b141a; }
-        body { margin: 0; background: #000; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        :root { --wa-teal: #008069; --wa-bg: #111b21; --wa-chat: #0b141a; }
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; height: 100vh; display: flex; justify-content: center; }
+        #app { width: 100%; max-width: 450px; background: var(--wa-bg); display: flex; flex-direction: column; position: relative; }
         
-        /* 7-себеп: 16:9 Телефон режимі */
-        #app-container { width: 100%; height: 100%; background: var(--main-bg); display: flex; flex-direction: column; transition: 0.3s; }
-        .mobile-view { width: 380px !important; height: 90vh !important; border: 8px solid #222; border-radius: 30px; }
+        /* Header */
+        .header { background: #202c33; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .tab-bar { display: flex; background: #202c33; border-bottom: 1px solid #222d32; }
+        .tab { flex: 1; padding: 15px; text-align: center; color: #8696a0; cursor: pointer; text-transform: uppercase; font-size: 14px; font-weight: bold; }
+        .tab.active { color: #00a884; border-bottom: 3px solid #00a884; }
 
-        /* Выкладкалар */
-        .content-section { flex: 1; display: none; overflow-y: auto; padding-bottom: 70px; }
-        .active-section { display: flex; flex-direction: column; }
-        
-        .nav-bar { position: absolute; bottom: 0; width: 100%; height: 65px; background: #111b21; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #222d32; }
-        .nav-item { text-align: center; color: #8696a0; cursor: pointer; font-size: 12px; }
-        .nav-item.active { color: #00a884; }
-        .nav-item i { font-size: 20px; display: block; margin-bottom: 4px; }
+        /* Sections */
+        .section { flex: 1; overflow-y: auto; display: none; }
+        .active-section { display: block; }
+        .item { padding: 15px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #1c262d; cursor: pointer; }
+        .item:hover { background: #202c33; }
+        .avatar { width: 50px; height: 50px; border-radius: 50%; background: #2a3942; display: flex; align-items: center; justify-content: center; }
 
-        /* Звонок Хабарламасы */
-        #call-ui { display: none; position: fixed; inset: 0; background: rgba(11, 20, 26, 0.95); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; }
-        
-        #msgs { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
-        .bubble { padding: 10px; border-radius: 10px; max-width: 75%; font-size: 14px; }
+        /* Chat Window */
+        #chat-window { position: absolute; inset: 0; background: var(--wa-chat); display: none; flex-direction: column; z-index: 100; }
+        .chat-header { background: #202c33; padding: 10px 15px; display: flex; align-items: center; gap: 10px; }
+        #msgs { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-blend-mode: overlay; }
+        .bubble { padding: 8px 12px; border-radius: 8px; max-width: 70%; font-size: 14px; position: relative; }
         .sent { background: #005c4b; align-self: flex-end; }
         .rec { background: #202c33; align-self: flex-start; }
+        
+        /* Call UI */
+        #call-ui { position: fixed; inset: 0; background: #0b141a; z-index: 500; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        video { width: 90%; border-radius: 15px; background: #000; margin: 10px; }
     </style>
 </head>
 <body>
 
-<div id="device-overlay" style="position:fixed; inset:0; background:#0b141a; z-index:3000; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-    <h3>Құрылғыны таңдаңыз:</h3>
-    <button onclick="setDevice('pc')" style="padding:15px 30px; margin:10px; border-radius:10px; border:none; background:#202c33; color:white;">💻 Компьютер</button>
-    <button onclick="setDevice('mobile')" style="padding:15px 30px; margin:10px; border-radius:10px; border:none; background:#00a884; color:white;">📱 Телефон (16:9)</button>
-</div>
-
-<div id="call-ui">
-    <h2 id="caller-info">Кіріс қоңырауы...</h2>
-    <div style="display:flex; gap:30px;">
-        <button onclick="acceptCall()" style="background:#00a884; width:60px; height:60px; border-radius:50%; border:none; color:white;"><i class="fas fa-phone"></i></button>
-        <button onclick="location.reload()" style="background:#f44336; width:60px; height:60px; border-radius:50%; border:none; color:white;"><i class="fas fa-phone-slash"></i></button>
+<div id="app">
+    <div id="call-ui">
+        <h2 id="call-status">Қоңырау...</h2>
+        <video id="remote-v" autoplay></video>
+        <video id="me-v" muted autoplay style="width: 120px; position: absolute; top: 20px; right: 20px;"></video>
+        <div style="display:flex; gap:20px; margin-top:20px;">
+            <button id="accept-btn" onclick="acceptCall()" style="background:green; color:white; padding:15px; border-radius:50%; border:none; display:none;"><i class="fas fa-phone"></i></button>
+            <button onclick="location.reload()" style="background:red; color:white; padding:15px; border-radius:50%; border:none;"><i class="fas fa-phone-slash"></i></button>
+        </div>
     </div>
-    <video id="remote-v" autoplay style="width:80%; margin-top:20px; border-radius:15px;"></video>
-</div>
 
-<div id="app-container">
-    <div id="section-chats" class="content-section active-section">
-        <div style="padding:15px; background:#202c33; display:flex; justify-content:space-between;">
-            <b>Чаттар</b>
-            <span id="active-with" style="color:#00a884"></span>
+    <div id="chat-window">
+        <div class="chat-header">
+            <i class="fas fa-arrow-left" onclick="closeChat()"></i>
+            <div class="avatar"><i class="fas fa-user"></i></div>
+            <b id="chat-name" style="flex:1">Аты</b>
+            <i class="fas fa-video" onclick="startCall('video')" style="margin-right:20px; color:#00a884"></i>
+            <i class="fas fa-phone" onclick="startCall('audio')" style="color:#00a884"></i>
         </div>
         <div id="msgs"></div>
-        <div id="chat-controls" style="padding:10px; display:none; background:#202c33; gap:10px;">
-            <input type="text" id="inp" style="flex:1; border:none; padding:10px; border-radius:20px; background:#2a3942; color:white;">
-            <button onclick="send()" style="background:none; border:none; color:#00a884; font-size:20px;"><i class="fas fa-paper-plane"></i></button>
+        <div style="padding:10px; background:#202c33; display:flex; gap:10px;">
+            <input type="text" id="inp" placeholder="Хабарлама..." style="flex:1; border:none; border-radius:20px; padding:10px; background:#2a3942; color:white;">
+            <button onclick="send()" style="background:none; border:none; color:#00a884; font-size:22px;"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
 
-    <div id="section-search" class="content-section">
-        <div style="padding:15px;"><input type="text" placeholder="Адам іздеу..." onkeyup="doSearch(this.value)" style="width:100%; padding:12px; border-radius:10px; border:none; background:#2a3942; color:white;"></div>
-        <div id="search-results"></div>
+    <div class="header">
+        <b style="font-size: 20px;">WhatsApp</b>
+        <div><i class="fas fa-search" style="margin-right:20px;"></i><i class="fas fa-ellipsis-v"></i></div>
     </div>
 
-    <div id="section-status" class="content-section">
-        <div style="padding:20px; text-align:center;"><h3>Стористер</h3><p style="color:#8696a0">Әзірге стористер жоқ</p></div>
+    <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('chats')">Чаттар</div>
+        <div class="tab" onclick="switchTab('status')">Статус</div>
+        <div class="tab" onclick="switchTab('calls')">Қоңырау</div>
     </div>
 
-    <div id="section-calls" class="content-section">
-        <div style="padding:15px;"><b>Звоноктар тарихы</b></div>
-        <div id="call-history"></div>
+    <div id="section-chats" class="section active-section">
+        <div style="padding:10px;"><input type="text" placeholder="Адам іздеу..." onkeyup="search(this.value)" style="width:96%; padding:10px; border-radius:10px; background:#202c33; color:white; border:none;"></div>
+        <div id="chat-list"></div>
     </div>
 
-    <div id="section-settings" class="content-section">
-        <div style="padding:20px; text-align:center;">
-            <div style="width:80px; height:80px; background:#2a3942; border-radius:50%; margin: 0 auto 10px;"></div>
-            <h3 id="profile-name"></h3>
-            <hr style="border:0.5px solid #222">
-            <p>Тема таңдау:</p>
-            <input type="color" onchange="setTheme(this.value)" style="width:100px; height:40px;">
+    <div id="section-status" class="section">
+        <div class="item" onclick="document.getElementById('status-file').click()">
+            <div class="avatar" style="border: 2px dashed #00a884;"><i class="fas fa-plus"></i></div>
+            <div><b>Менің статусым</b><br><small>Статус қосу</small></div>
+            <input type="file" id="status-file" hidden onchange="uploadStatus(this)">
         </div>
-    </div>
-
-    <div class="nav-bar">
-        <div class="nav-item active" onclick="showSection('chats')"><i class="fas fa-comment"></i>Чаттар</div>
-        <div class="nav-item" onclick="showSection('search')"><i class="fas fa-search"></i>Іздеу</div>
-        <div class="nav-item" onclick="showSection('status')"><i class="fas fa-circle-notch"></i>Стористер</div>
-        <div class="nav-item" onclick="showSection('calls')"><i class="fas fa-phone-alt"></i>Звоноктар</div>
-        <div class="nav-item" onclick="showSection('settings')"><i class="fas fa-user"></i>Аккаунт</div>
+        <div id="status-list"></div>
     </div>
 </div>
 
 <script>
     const socket = io();
     const myName = localStorage.getItem('username');
-    document.getElementById('profile-name').innerText = myName;
-    let active = '', myStream, peer = new Peer(myName), incomingCall;
+    let active = '', myStream, peer = new Peer(myName), incoming;
 
-    function setDevice(type) {
-        if(type === 'mobile') document.getElementById('app-container').classList.add('mobile-view');
-        document.getElementById('device-overlay').style.display = 'none';
-        navigator.mediaDevices.getUserMedia({video:true, audio:true}).then(s => myStream = s);
-    }
+    // Камераға рұқсат
+    navigator.mediaDevices.getUserMedia({video:true, audio:true}).then(s => {
+        myStream = s; document.getElementById('me-v').srcObject = s;
+    });
 
     socket.emit('join', myName);
 
-    function showSection(id) {
-        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active-section'));
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        document.getElementById('section-' + id).classList.add('active-section');
+    function switchTab(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active-section'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('section-'+id).classList.add('active-section');
         event.currentTarget.classList.add('active');
-        if(id === 'calls') loadCalls();
+        if(id === 'status') loadStatuses();
     }
 
-    async function doSearch(q) {
+    async function search(q) {
         if(!q) return;
         const res = await fetch(`/search?q=${q}`);
-        const data = await res.json();
-        const cont = document.getElementById('search-results');
-        cont.innerHTML = '';
-        data.data.forEach(name => {
-            const d = document.createElement('div');
-            d.style.padding = '15px'; d.style.borderBottom = '1px solid #222';
-            d.innerHTML = `<b>${name}</b>`;
-            d.onclick = () => { active = name; openChat(name); };
-            cont.appendChild(d);
+        const d = await res.json();
+        const list = document.getElementById('chat-list');
+        list.innerHTML = '';
+        d.data.forEach(u => {
+            if(u === myName) return;
+            const item = document.createElement('div');
+            item.className = 'item';
+            item.innerHTML = `<div class="avatar"><i class="fas fa-user"></i></div><div><b>${u}</b></div>`;
+            item.onclick = () => openChat(u);
+            list.appendChild(item);
         });
     }
 
     async function openChat(name) {
         active = name;
-        document.getElementById('active-with').innerText = name;
-        document.getElementById('chat-controls').style.display = 'flex';
-        showSection('chats');
+        document.getElementById('chat-name').innerText = name;
+        document.getElementById('chat-window').style.display = 'flex';
         const res = await fetch(`/messages?me=${myName}&with=${name}`);
         const data = await res.json();
         const box = document.getElementById('msgs');
         box.innerHTML = '';
-        data.forEach(m => addBubble(m));
+        data.forEach(m => addMsg(m));
     }
 
-    function addBubble(d) {
+    function closeChat() { document.getElementById('chat-window').style.display = 'none'; }
+
+    function addMsg(d) {
         const div = document.createElement('div');
         div.className = `bubble ${d.from === myName ? 'sent' : 'rec'}`;
         div.innerText = d.text;
@@ -152,32 +149,57 @@
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
     }
 
-    socket.on('msg', d => { if(d.from === active || d.from === myName) addBubble(d); });
-
-    peer.on('call', call => {
-        incomingCall = call;
-        document.getElementById('call-ui').style.display = 'flex';
-        document.getElementById('caller-info').innerText = "Кіріс қоңырауы: " + call.peer;
-    });
-
-    function acceptCall() {
-        incomingCall.answer(myStream);
-        incomingCall.on('stream', rs => { document.getElementById('remote-v').srcObject = rs; });
-    }
-
-    async function loadCalls() {
-        const res = await fetch(`/calls?me=${myName}`);
-        const data = await res.json();
-        const cont = document.getElementById('call-history');
-        cont.innerHTML = data.map(c => `<div style="padding:10px; border-bottom:1px solid #222">${c.from} -> ${c.to} (${new Date(c.time).toLocaleTimeString()})</div>`).join('');
-    }
+    socket.on('msg', d => { if(d.from === active || d.from === myName) addMsg(d); });
 
     function send() {
         const i = document.getElementById('inp');
-        if(i.value && active) { socket.emit('msg', {to:active, from:myName, text:i.value}); i.value = ''; }
+        if(i.value && active) {
+            socket.emit('msg', {to:active, from:myName, text:i.value});
+            i.value = '';
+        }
     }
 
-    function setTheme(c) { document.documentElement.style.setProperty('--main-bg', c); }
+    // Звонок
+    function startCall(type) {
+        document.getElementById('call-ui').style.display = 'flex';
+        const call = peer.call(active, myStream);
+        call.on('stream', rs => document.getElementById('remote-v').srcObject = rs);
+    }
+
+    peer.on('call', call => {
+        incoming = call;
+        document.getElementById('call-ui').style.display = 'flex';
+        document.getElementById('call-status').innerText = call.peer + " звондауда...";
+        document.getElementById('accept-btn').style.display = 'block';
+    });
+
+    function acceptCall() {
+        incoming.answer(myStream);
+        incoming.on('stream', rs => document.getElementById('remote-v').srcObject = rs);
+        document.getElementById('accept-btn').style.display = 'none';
+    }
+
+    // Статустар
+    async function uploadStatus(input) {
+        const fd = new FormData();
+        fd.append('file', input.files[0]);
+        fd.append('user', myName);
+        await fetch('/upload-status', {method:'POST', body:fd});
+        loadStatuses();
+    }
+
+    async function loadStatuses() {
+        const res = await fetch('/all-status');
+        const data = await res.json();
+        const list = document.getElementById('status-list');
+        list.innerHTML = '<h3>Басқалардың статусы</h3>';
+        data.forEach(s => {
+            list.innerHTML += `<div class="item" onclick="window.open('${s.img}')">
+                <div class="avatar" style="border:2px solid #00a884"><img src="${s.img}" width="100%" style="border-radius:50%"></div>
+                <div><b>${s.user}</b><br><small>${new Date(s.time).toLocaleTimeString()}</small></div>
+            </div>`;
+        });
+    }
 </script>
 </body>
 </html>

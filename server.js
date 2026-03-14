@@ -12,39 +12,41 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 app.use('/uploads', express.static('uploads'));
 
+if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
+
 const mongoURI = "mongodb+srv://islammedelkhan_db_user:sVjFAe30NltnT5Cd@cluster0.qmvz3zc.mongodb.net/chatDB?retryWrites=true&w=majority&appName=Cluster0"; 
 mongoose.connect(mongoURI).then(() => console.log("MongoDB қосылды!"));
 
-// БАЗА СХЕМАСЫ
-const UserSchema = new mongoose.Schema({
-    username: { type: String, unique: true },
-    password: { type: String },
-    theme: { type: String, default: '#0b141a' }
-});
-const MessageSchema = new mongoose.Schema({
-    from: String, to: String, text: String, time: { type: Date, default: Date.now }
-});
-const CallSchema = new mongoose.Schema({
-    from: String, to: String, type: String, time: { type: Date, default: Date.now }
-});
+// Схемалар
+const UserSchema = new mongoose.Schema({ username: { type: String, unique: true }, password: { type: String }, theme: String });
+const MessageSchema = new mongoose.Schema({ from: String, to: String, text: String, file: String, time: { type: Date, default: Date.now } });
+const StatusSchema = new mongoose.Schema({ user: String, img: String, time: { type: Date, default: Date.now, expires: 86400 } }); // 24 сағаттан соң өшеді
 
 const User = mongoose.model('User', UserSchema);
 const Message = mongoose.model('Message', MessageSchema);
-const Call = mongoose.model('Call', CallSchema);
+const Status = mongoose.model('Status', StatusSchema);
 
-const upload = multer({ dest: './uploads/' });
+const storage = multer.diskStorage({
+    destination: './uploads/',
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+const upload = multer({ storage: storage });
 
-// ТАРИХТЫ АЛУ
+// API-лер
 app.get('/messages', async (req, res) => {
-    const msgs = await Message.find({
-        $or: [{ from: req.query.me, to: req.query.with }, { from: req.query.with, to: req.query.me }]
-    }).sort('time');
+    const msgs = await Message.find({ $or: [{ from: req.query.me, to: req.query.with }, { from: req.query.with, to: req.query.me }] }).sort('time');
     res.json(msgs);
 });
 
-app.get('/calls', async (req, res) => {
-    const calls = await Call.find({ $or: [{ from: req.query.me }, { to: req.query.me }] }).sort('-time');
-    res.json(calls);
+app.post('/upload-status', upload.single('file'), async (req, res) => {
+    const newStatus = new Status({ user: req.body.user, img: `/uploads/${req.file.filename}` });
+    await newStatus.save();
+    res.json({ success: true });
+});
+
+app.get('/all-status', async (req, res) => {
+    const statuses = await Status.find().sort('-time');
+    res.json(statuses);
 });
 
 app.get('/search', async (req, res) => {
@@ -54,9 +56,8 @@ app.get('/search', async (req, res) => {
 
 app.post('/login', async (req, res) => {
     const user = await User.findOne({ username: req.body.username });
-    if (user && await bcrypt.compare(req.body.password, user.password)) {
-        res.json({ success: true, username: user.username });
-    } else { res.json({ success: false }); }
+    if (user && await bcrypt.compare(req.body.password, user.password)) res.json({ success: true, username: user.username });
+    else res.json({ success: false });
 });
 
 io.on('connection', (socket) => {
@@ -65,10 +66,7 @@ io.on('connection', (socket) => {
         await new Message(d).save();
         io.to(d.to).to(d.from).emit('msg', d);
     });
-    socket.on('save-call', async (d) => {
-        await new Call(d).save();
-    });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Сервер қосылды!`));
+http.listen(PORT, () => console.log(`Сервер ${PORT}-да!`));
