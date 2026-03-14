@@ -57,11 +57,14 @@ app.get('/search', async (req, res) => {
 });
 
 io.on('connection', (socket) => {
-    socket.on('join', (u) => socket.join(u));
+    socket.on('join', (u) => {
+        socket.join(u); // Әр пайдаланушы өз атымен жеке бөлмеге (room) кіреді
+    });
     socket.on('msg', (d) => {
+        // Хабарлама тек алушыға және жіберушіге барады
         io.to(d.to).to(d.from).emit('msg', d);
     });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Сервер ${PORT} портында қосылды!`));
+http.listen(PORT, () => console.log(`Сервер қосылды!`));
