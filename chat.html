@@ -2,93 +2,149 @@
 <html lang="kk">
 <head>
     <meta charset="UTF-8">
-    <title>Messenger Pro Max</title>
+    <title>Messenger Pro</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root { --bg: #0b141a; }
-        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; height: 100vh; }
-        .side { width: 300px; background: #111b21; border-right: 1px solid #222d32; }
-        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
-        .bubble { padding: 10px; border-radius: 10px; max-width: 70%; }
+        :root { --main-bg: #0b141a; }
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        
+        /* 7-себеп: 16:9 Телефон режимі */
+        #app-container { width: 100%; height: 100%; background: var(--main-bg); display: flex; flex-direction: column; transition: 0.3s; }
+        .mobile-view { width: 380px !important; height: 90vh !important; border: 8px solid #222; border-radius: 30px; }
+
+        /* Выкладкалар */
+        .content-section { flex: 1; display: none; overflow-y: auto; padding-bottom: 70px; }
+        .active-section { display: flex; flex-direction: column; }
+        
+        .nav-bar { position: absolute; bottom: 0; width: 100%; height: 65px; background: #111b21; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #222d32; }
+        .nav-item { text-align: center; color: #8696a0; cursor: pointer; font-size: 12px; }
+        .nav-item.active { color: #00a884; }
+        .nav-item i { font-size: 20px; display: block; margin-bottom: 4px; }
+
+        /* Звонок Хабарламасы */
+        #call-ui { display: none; position: fixed; inset: 0; background: rgba(11, 20, 26, 0.95); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; }
+        
+        #msgs { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .bubble { padding: 10px; border-radius: 10px; max-width: 75%; font-size: 14px; }
         .sent { background: #005c4b; align-self: flex-end; }
         .rec { background: #202c33; align-self: flex-start; }
-        /* 3-себеп: Входящий звонок дизайны */
-        #incoming-modal { display:none; position:fixed; top:20px; right:20px; background:#202c33; padding:20px; border-radius:15px; border:2px solid #00a884; z-index:2000; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% {box-shadow: 0 0 0 0 rgba(0, 168, 132, 0.7);} 70% {box-shadow: 0 0 0 15px rgba(0, 168, 132, 0);} 100% {box-shadow: 0 0 0 0 rgba(0, 168, 132, 0);} }
     </style>
 </head>
-<body onload="checkDevice()">
+<body>
 
-<div id="incoming-modal">
-    <h3 id="caller-name">Біреу звондап тұр...</h3>
-    <button onclick="answerCall(true)" style="background:green; color:white; border:none; padding:10px 20px; border-radius:10px;">Жауап беру</button>
-    <button onclick="answerCall(false)" style="background:red; color:white; border:none; padding:10px 20px; border-radius:10px;">Қабылдамау</button>
+<div id="device-overlay" style="position:fixed; inset:0; background:#0b141a; z-index:3000; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+    <h3>Құрылғыны таңдаңыз:</h3>
+    <button onclick="setDevice('pc')" style="padding:15px 30px; margin:10px; border-radius:10px; border:none; background:#202c33; color:white;">💻 Компьютер</button>
+    <button onclick="setDevice('mobile')" style="padding:15px 30px; margin:10px; border-radius:10px; border:none; background:#00a884; color:white;">📱 Телефон (16:9)</button>
 </div>
 
-<div id="device-check" style="position:fixed; inset:0; background:#0b141a; z-index:3000; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-    <h2>Қай құрылғыдан кірдіңіз?</h2>
-    <button onclick="closeDevice('Телефон')" style="padding:15px 40px; margin:10px; border-radius:10px; background:#00a884; color:white; border:none;">📱 Телефон</button>
-    <button onclick="closeDevice('Компьютер')" style="padding:15px 40px; margin:10px; border-radius:10px; background:#202c33; color:white; border:none;">💻 Компьютер</button>
-</div>
-
-<div class="side">
-    <div style="padding:10px;">
-        <input type="color" onchange="changeTheme(this.value)" title="Тема таңдау"> 🎨
-        <button onclick="showCalls()" title="Звонок тарихы"><i class="fas fa-history"></i></button>
+<div id="call-ui">
+    <h2 id="caller-info">Кіріс қоңырауы...</h2>
+    <div style="display:flex; gap:30px;">
+        <button onclick="acceptCall()" style="background:#00a884; width:60px; height:60px; border-radius:50%; border:none; color:white;"><i class="fas fa-phone"></i></button>
+        <button onclick="location.reload()" style="background:#f44336; width:60px; height:60px; border-radius:50%; border:none; color:white;"><i class="fas fa-phone-slash"></i></button>
     </div>
-    <div id="results"></div>
+    <video id="remote-v" autoplay style="width:80%; margin-top:20px; border-radius:15px;"></video>
 </div>
 
-<div class="main">
-    <div class="header" style="padding:15px; background:#202c33; display:flex; justify-content:space-between;">
-        <b id="active-name">Чат</b>
-        <div>
-            <i class="fas fa-phone" onclick="makeCall('audio')" style="margin-right:15px; cursor:pointer;"></i>
-            <i class="fas fa-video" onclick="makeCall('video')" style="cursor:pointer;"></i>
+<div id="app-container">
+    <div id="section-chats" class="content-section active-section">
+        <div style="padding:15px; background:#202c33; display:flex; justify-content:space-between;">
+            <b>Чаттар</b>
+            <span id="active-with" style="color:#00a884"></span>
+        </div>
+        <div id="msgs"></div>
+        <div id="chat-controls" style="padding:10px; display:none; background:#202c33; gap:10px;">
+            <input type="text" id="inp" style="flex:1; border:none; padding:10px; border-radius:20px; background:#2a3942; color:white;">
+            <button onclick="send()" style="background:none; border:none; color:#00a884; font-size:20px;"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
-    <div id="msgs"></div>
-    <div class="footer" style="padding:10px; display:flex; gap:10px; background:#202c33;">
-        <input type="text" id="inp" style="flex:1; background:#2a3942; border:none; color:white; padding:10px; border-radius:20px;">
-        <button onclick="send()" style="background:none; border:none; color:#00a884; font-size:20px;"><i class="fas fa-paper-plane"></i></button>
-    </div>
-</div>
 
-<div id="video-screen" style="display:none; position:fixed; inset:0; background:#000; z-index:1000; flex-direction:column; align-items:center; justify-content:center;">
-    <video id="me" muted autoplay style="width:150px; position:absolute; top:20px; right:20px;"></video>
-    <video id="remote" autoplay style="width:80%"></video>
-    <button onclick="location.reload()" style="background:red; color:white; padding:15px 40px; border-radius:30px; border:none; margin-top:20px;">Аяқтау</button>
+    <div id="section-search" class="content-section">
+        <div style="padding:15px;"><input type="text" placeholder="Адам іздеу..." onkeyup="doSearch(this.value)" style="width:100%; padding:12px; border-radius:10px; border:none; background:#2a3942; color:white;"></div>
+        <div id="search-results"></div>
+    </div>
+
+    <div id="section-status" class="content-section">
+        <div style="padding:20px; text-align:center;"><h3>Стористер</h3><p style="color:#8696a0">Әзірге стористер жоқ</p></div>
+    </div>
+
+    <div id="section-calls" class="content-section">
+        <div style="padding:15px;"><b>Звоноктар тарихы</b></div>
+        <div id="call-history"></div>
+    </div>
+
+    <div id="section-settings" class="content-section">
+        <div style="padding:20px; text-align:center;">
+            <div style="width:80px; height:80px; background:#2a3942; border-radius:50%; margin: 0 auto 10px;"></div>
+            <h3 id="profile-name"></h3>
+            <hr style="border:0.5px solid #222">
+            <p>Тема таңдау:</p>
+            <input type="color" onchange="setTheme(this.value)" style="width:100px; height:40px;">
+        </div>
+    </div>
+
+    <div class="nav-bar">
+        <div class="nav-item active" onclick="showSection('chats')"><i class="fas fa-comment"></i>Чаттар</div>
+        <div class="nav-item" onclick="showSection('search')"><i class="fas fa-search"></i>Іздеу</div>
+        <div class="nav-item" onclick="showSection('status')"><i class="fas fa-circle-notch"></i>Стористер</div>
+        <div class="nav-item" onclick="showSection('calls')"><i class="fas fa-phone-alt"></i>Звоноктар</div>
+        <div class="nav-item" onclick="showSection('settings')"><i class="fas fa-user"></i>Аккаунт</div>
+    </div>
 </div>
 
 <script>
     const socket = io();
     const myName = localStorage.getItem('username');
-    let active = '', myStream, currentCall;
-    const peer = new Peer(myName);
+    document.getElementById('profile-name').innerText = myName;
+    let active = '', myStream, peer = new Peer(myName), incomingCall;
 
-    function closeDevice(type) {
-        alert(type + " арқылы қосылдыңыз");
-        document.getElementById('device-check').style.display = 'none';
-        navigator.mediaDevices.getUserMedia({video:true, audio:true}).then(s => {
-            myStream = s; document.getElementById('me').srcObject = s;
-        });
+    function setDevice(type) {
+        if(type === 'mobile') document.getElementById('app-container').classList.add('mobile-view');
+        document.getElementById('device-overlay').style.display = 'none';
+        navigator.mediaDevices.getUserMedia({video:true, audio:true}).then(s => myStream = s);
     }
 
     socket.emit('join', myName);
 
-    // 1-себеп: Ескі хабарламаларды жүктеу
-    async function loadHistory(withUser) {
-        const res = await fetch(`/messages?me=${myName}&with=${withUser}`);
+    function showSection(id) {
+        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active-section'));
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.getElementById('section-' + id).classList.add('active-section');
+        event.currentTarget.classList.add('active');
+        if(id === 'calls') loadCalls();
+    }
+
+    async function doSearch(q) {
+        if(!q) return;
+        const res = await fetch(`/search?q=${q}`);
+        const data = await res.json();
+        const cont = document.getElementById('search-results');
+        cont.innerHTML = '';
+        data.data.forEach(name => {
+            const d = document.createElement('div');
+            d.style.padding = '15px'; d.style.borderBottom = '1px solid #222';
+            d.innerHTML = `<b>${name}</b>`;
+            d.onclick = () => { active = name; openChat(name); };
+            cont.appendChild(d);
+        });
+    }
+
+    async function openChat(name) {
+        active = name;
+        document.getElementById('active-with').innerText = name;
+        document.getElementById('chat-controls').style.display = 'flex';
+        showSection('chats');
+        const res = await fetch(`/messages?me=${myName}&with=${name}`);
         const data = await res.json();
         const box = document.getElementById('msgs');
         box.innerHTML = '';
-        data.forEach(d => displayMsg(d));
+        data.forEach(m => addBubble(m));
     }
 
-    function displayMsg(d) {
+    function addBubble(d) {
         const div = document.createElement('div');
         div.className = `bubble ${d.from === myName ? 'sent' : 'rec'}`;
         div.innerText = d.text;
@@ -96,58 +152,32 @@
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
     }
 
-    socket.on('msg', d => { if(d.from === active || d.from === myName) displayMsg(d); });
+    socket.on('msg', d => { if(d.from === active || d.from === myName) addBubble(d); });
 
-    // 3-себеп: Звонок келгендегі терезе
     peer.on('call', call => {
-        currentCall = call;
-        document.getElementById('caller-name').innerText = call.peer + " звондап тұр...";
-        document.getElementById('incoming-modal').style.display = 'block';
-        // Дыбыс шығаруға болады
+        incomingCall = call;
+        document.getElementById('call-ui').style.display = 'flex';
+        document.getElementById('caller-info').innerText = "Кіріс қоңырауы: " + call.peer;
     });
 
-    function answerCall(status) {
-        document.getElementById('incoming-modal').style.display = 'none';
-        if(status) {
-            document.getElementById('video-screen').style.display = 'flex';
-            currentCall.answer(myStream);
-            currentCall.on('stream', rs => document.getElementById('remote').srcObject = rs);
-        } else {
-            currentCall.close();
-        }
+    function acceptCall() {
+        incomingCall.answer(myStream);
+        incomingCall.on('stream', rs => { document.getElementById('remote-v').srcObject = rs; });
     }
 
-    function makeCall(type) {
-        if(!active) return;
-        socket.emit('call-log', {from:myName, to:active, type:type});
-        document.getElementById('video-screen').style.display = 'flex';
-        const call = peer.call(active, myStream);
-        call.on('stream', rs => document.getElementById('remote').srcObject = rs);
-    }
-
-    async function changeTheme(color) {
-        document.documentElement.style.setProperty('--bg', color);
-        await fetch('/set-theme', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:myName, color:color})});
-    }
-
-    async function search(q) {
-        if(!q) return;
-        const res = await fetch(`/search?q=${q}`);
+    async function loadCalls() {
+        const res = await fetch(`/calls?me=${myName}`);
         const data = await res.json();
-        const cont = document.getElementById('results');
-        cont.innerHTML = '';
-        data.data.forEach(name => {
-            const d = document.createElement('div');
-            d.style.padding = '15px'; d.style.cursor='pointer'; d.innerHTML = `<b>${name}</b>`;
-            d.onclick = () => { active = name; loadHistory(name); };
-            cont.appendChild(d);
-        });
+        const cont = document.getElementById('call-history');
+        cont.innerHTML = data.map(c => `<div style="padding:10px; border-bottom:1px solid #222">${c.from} -> ${c.to} (${new Date(c.time).toLocaleTimeString()})</div>`).join('');
     }
 
     function send() {
         const i = document.getElementById('inp');
         if(i.value && active) { socket.emit('msg', {to:active, from:myName, text:i.value}); i.value = ''; }
     }
+
+    function setTheme(c) { document.documentElement.style.setProperty('--main-bg', c); }
 </script>
 </body>
 </html>

@@ -15,18 +15,15 @@ app.use('/uploads', express.static('uploads'));
 const mongoURI = "mongodb+srv://islammedelkhan_db_user:sVjFAe30NltnT5Cd@cluster0.qmvz3zc.mongodb.net/chatDB?retryWrites=true&w=majority&appName=Cluster0"; 
 mongoose.connect(mongoURI).then(() => console.log("MongoDB қосылды!"));
 
-// СХЕМАЛАР
+// БАЗА СХЕМАСЫ
 const UserSchema = new mongoose.Schema({
     username: { type: String, unique: true },
     password: { type: String },
-    avatar: { type: String, default: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' },
-    theme: { type: String, default: '#0b141a' } // 4-себеп: Тема сақтау
+    theme: { type: String, default: '#0b141a' }
 });
-
 const MessageSchema = new mongoose.Schema({
-    from: String, to: String, text: String, file: String, fType: String, time: { type: Date, default: Date.now }
+    from: String, to: String, text: String, time: { type: Date, default: Date.now }
 });
-
 const CallSchema = new mongoose.Schema({
     from: String, to: String, type: String, time: { type: Date, default: Date.now }
 });
@@ -35,46 +32,41 @@ const User = mongoose.model('User', UserSchema);
 const Message = mongoose.model('Message', MessageSchema);
 const Call = mongoose.model('Call', CallSchema);
 
-// ХАБАРЛАМАЛАРДЫ АЛУ (1-себеп)
+const upload = multer({ dest: './uploads/' });
+
+// ТАРИХТЫ АЛУ
 app.get('/messages', async (req, res) => {
     const msgs = await Message.find({
-        $or: [
-            { from: req.query.me, to: req.query.with },
-            { from: req.query.with, to: req.query.me }
-        ]
+        $or: [{ from: req.query.me, to: req.query.with }, { from: req.query.with, to: req.query.me }]
     }).sort('time');
     res.json(msgs);
 });
 
-// ҚОҢЫРАУ ТАРИХЫН АЛУ (5-себеп)
 app.get('/calls', async (req, res) => {
-    const calls = await Call.find({ $or: [{ from: req.query.me }, { to: req.query.me }] }).sort('-time').limit(10);
+    const calls = await Call.find({ $or: [{ from: req.query.me }, { to: req.query.me }] }).sort('-time');
     res.json(calls);
 });
 
-// ТЕМАНЫ ӨЗГЕРТУ (4-себеп)
-app.post('/set-theme', async (req, res) => {
-    await User.findOneAndUpdate({ username: req.body.username }, { theme: req.body.color });
-    res.json({ success: true });
+app.get('/search', async (req, res) => {
+    const users = await User.find({ username: { $regex: req.query.q, $options: 'i' } }).limit(5);
+    res.json({ data: users.map(u => u.username) });
 });
 
 app.post('/login', async (req, res) => {
     const user = await User.findOne({ username: req.body.username });
     if (user && await bcrypt.compare(req.body.password, user.password)) {
-        res.json({ success: true, username: user.username, theme: user.theme });
+        res.json({ success: true, username: user.username });
     } else { res.json({ success: false }); }
 });
 
-// SOCKET ЛОГИКАСЫ
 io.on('connection', (socket) => {
     socket.on('join', (u) => socket.join(u));
     socket.on('msg', async (d) => {
-        const newMsg = new Message(d);
-        await newMsg.save(); // Сақтау
+        await new Message(d).save();
         io.to(d.to).to(d.from).emit('msg', d);
     });
-    socket.on('call-log', async (d) => {
-        await new Call(d).save(); // Қоңырау тарихы
+    socket.on('save-call', async (d) => {
+        await new Call(d).save();
     });
 });
 
