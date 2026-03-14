@@ -23,14 +23,6 @@ const MessageSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 const Message = mongoose.model('Message', MessageSchema);
 
-app.post('/register', async (req, res) => {
-    try {
-        const hashedPassword = await bcrypt.hash(req.body.password, 10);
-        await new User({ username: req.body.username, password: hashedPassword }).save();
-        res.json({ success: true });
-    } catch (err) { res.json({ success: false }); }
-});
-
 app.post('/login', async (req, res) => {
     const user = await User.findOne({ username: req.body.username });
     if (user && await bcrypt.compare(req.body.password, user.password)) {
@@ -54,9 +46,10 @@ io.on('connection', (socket) => {
     socket.on('join', (u) => socket.join(u));
     socket.on('msg', async (d) => {
         await new Message(d).save();
-        io.to(d.to).to(d.from).emit('msg', d);
+        io.to(d.to).emit('msg', d); // Хабарламаны алушыға жіберу
+        io.to(d.from).emit('msg', d); // Хабарламаны өзіңе көрсету
     });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Сервер іске қосылды!`));
+http.listen(PORT, () => console.log(`Сервер ${PORT} портында қосылды!`));

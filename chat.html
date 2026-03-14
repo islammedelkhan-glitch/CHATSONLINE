@@ -3,29 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp</title>
+    <title>Messenger</title>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { margin: 0; background: #0b141a; color: white; font-family: sans-serif; height: 100vh; display: flex; justify-content: center; }
-        #app { width: 100%; max-width: 450px; background: #111b21; display: flex; flex-direction: column; position: relative; border: 1px solid #222; }
-        .header { background: #202c33; padding: 15px; display: flex; justify-content: space-between; align-items: center; color: #8696a0; }
+        #app { width: 100%; max-width: 450px; background: #111b21; display: flex; flex-direction: column; position: relative; }
+        .header { background: #202c33; padding: 15px; display: flex; justify-content: flex-end; align-items: center; gap: 20px; }
         .tab-bar { display: flex; background: #202c33; border-bottom: 1px solid #222d32; }
-        .tab { flex: 1; padding: 15px; text-align: center; color: #8696a0; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .tab { flex: 1; padding: 15px; text-align: center; color: #8696a0; cursor: pointer; font-weight: bold; }
         .tab.active { color: #00a884; border-bottom: 3px solid #00a884; }
         
-        /* Поисковик стилі */
-        #search-box { display: none; padding: 10px; background: #111b21; }
-        #search-box input { width: 90%; padding: 10px; border-radius: 20px; border: none; background: #2a3942; color: white; outline: none; }
-        
-        #list { flex: 1; overflow-y: auto; }
-        .user-item { padding: 15px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #1c262d; cursor: pointer; }
-        .avatar { width: 45px; height: 45px; border-radius: 50%; background: #6a7175; display: flex; align-items: center; justify-content: center; color: white; }
+        .section { flex: 1; display: none; overflow-y: auto; }
+        .section.active { display: block; }
 
-        #chat-ui { position: absolute; inset: 0; background: #0b141a; display: none; flex-direction: column; z-index: 100; }
-        .chat-h { background: #202c33; padding: 10px; display: flex; align-items: center; gap: 10px; }
-        #msgs { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        .msg { padding: 8px 12px; border-radius: 8px; max-width: 70%; font-size: 14px; }
+        #chat-window { position: absolute; inset: 0; background: #0b141a; display: none; flex-direction: column; z-index: 200; }
+        .chat-h { background: #202c33; padding: 10px; display: flex; align-items: center; gap: 15px; }
+        #msgs { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
+        .msg { padding: 8px 12px; border-radius: 8px; max-width: 75%; font-size: 14px; }
         .sent { background: #005c4b; align-self: flex-end; }
         .rec { background: #202c33; align-self: flex-start; }
     </style>
@@ -33,37 +28,39 @@
 <body>
 
 <div id="app">
-    <div id="search-box">
-        <input type="text" id="sq" placeholder="Адам іздеу..." onkeyup="doSearch(this.value)">
-        <i class="fas fa-times" onclick="toggleSearch()" style="cursor:pointer"></i>
-    </div>
-
     <div class="header">
-        <b style="font-size: 22px; color: white;">WhatsApp</b>
-        <div>
-            <i class="fas fa-search" onclick="toggleSearch()" style="margin-right: 20px; cursor: pointer;"></i>
-            <i class="fas fa-ellipsis-v" onclick="showMenu()" style="cursor: pointer;"></i>
-        </div>
+        <i class="fas fa-search"></i>
+        <i class="fas fa-ellipsis-v"></i>
     </div>
 
     <div class="tab-bar">
-        <div class="tab active">ЧАТТАР</div>
-        <div class="tab">СТАТУС</div>
-        <div class="tab">ҚОҢЫРАУ</div>
+        <div class="tab active" onclick="switchTab('chats', this)">ЧАТТАР</div>
+        <div class="tab" onclick="switchTab('status', this)">СТАТУС</div>
+        <div class="tab" onclick="switchTab('calls', this)">ҚОҢЫРАУ</div>
     </div>
 
-    <div id="list"></div>
+    <div id="sec-chats" class="section active">
+        <div style="padding:15px;"><input type="text" placeholder="Іздеу..." onkeyup="search(this.value)" style="width:90%; padding:10px; border-radius:10px; border:none; background:#2a3942; color:white;"></div>
+        <div id="chat-list"></div>
+    </div>
 
-    <div id="chat-ui">
+    <div id="sec-status" class="section">
+        <div style="padding:20px; text-align:center;"><h3>Статустар</h3><p>Әзірге ештеңе жоқ</p></div>
+    </div>
+
+    <div id="sec-calls" class="section">
+        <div style="padding:20px; text-align:center;"><h3>Қоңыраулар</h3><p>Тарих бос</p></div>
+    </div>
+
+    <div id="chat-window">
         <div class="chat-h">
             <i class="fas fa-arrow-left" onclick="closeChat()"></i>
-            <div class="avatar"><i class="fas fa-user"></i></div>
-            <b id="active-user">Аты</b>
+            <b id="active-name">Аты</b>
         </div>
         <div id="msgs"></div>
-        <div style="padding: 10px; background: #202c33; display: flex; gap: 10px;">
-            <input type="text" id="minp" style="flex: 1; border: none; padding: 10px; border-radius: 20px; background: #2a3942; color: white;">
-            <button onclick="send()" style="background: none; border: none; color: #00a884; font-size: 20px;"><i class="fas fa-paper-plane"></i></button>
+        <div style="padding:10px; background:#202c33; display:flex; gap:10px;">
+            <input type="text" id="minp" style="flex:1; border:none; padding:12px; border-radius:25px; background:#2a3942; color:white;">
+            <button onclick="send()" style="background:none; border:none; color:#00a884; font-size:20px;"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
 </div>
@@ -71,36 +68,37 @@
 <script>
     const socket = io();
     const myName = localStorage.getItem('username');
-    if(!myName) location.href = 'index.html'; // Егер логин жасамаса, кіргізбейді
+    let activeChat = '';
 
-    let active = '';
     socket.emit('join', myName);
 
-    function toggleSearch() {
-        const box = document.getElementById('search-box');
-        box.style.display = box.style.display === 'block' ? 'none' : 'block';
+    function switchTab(id, el) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('sec-' + id).classList.add('active');
+        el.classList.add('active');
     }
 
-    async function doSearch(q) {
+    async function search(q) {
         if(!q) return;
         const res = await fetch(`/search?q=${q}`);
         const data = await res.json();
-        const cont = document.getElementById('list');
-        cont.innerHTML = '';
+        const list = document.getElementById('chat-list');
+        list.innerHTML = '';
         data.data.forEach(name => {
             if(name === myName) return;
-            const d = document.createElement('div');
-            d.className = 'user-item';
-            d.innerHTML = `<div class="avatar"><i class="fas fa-user"></i></div><b>${name}</b>`;
-            d.onclick = () => openChat(name);
-            cont.appendChild(d);
+            const div = document.createElement('div');
+            div.style.padding = '15px'; div.style.borderBottom = '1px solid #222';
+            div.innerHTML = `<b>${name}</b>`;
+            div.onclick = () => openChat(name);
+            list.appendChild(div);
         });
     }
 
     async function openChat(name) {
-        active = name;
-        document.getElementById('active-user').innerText = name;
-        document.getElementById('chat-ui').style.display = 'flex';
+        activeChat = name;
+        document.getElementById('active-name').innerText = name;
+        document.getElementById('chat-window').style.display = 'flex';
         const res = await fetch(`/messages?me=${myName}&with=${name}`);
         const msgs = await res.json();
         const box = document.getElementById('msgs');
@@ -116,18 +114,24 @@
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
     }
 
-    socket.on('msg', d => { if(d.from === active || d.from === myName) addBubble(d); });
+    // Входящие сообщения (Кіріс хабарламалар)
+    socket.on('msg', d => {
+        if (d.from === activeChat || d.from === myName) {
+            addBubble(d);
+        } else {
+            alert("Жаңа хабарлама келді: " + d.from); // Бұл хабарлама келгенін білдіреді
+        }
+    });
 
     function send() {
         const i = document.getElementById('minp');
-        if(i.value && active) {
-            socket.emit('msg', {to: active, from: myName, text: i.value});
+        if(i.value && activeChat) {
+            socket.emit('msg', {to: activeChat, from: myName, text: i.value});
             i.value = '';
         }
     }
 
-    function closeChat() { document.getElementById('chat-ui').style.display = 'none'; }
-    function showMenu() { alert("Параметрлер жақында қосылады!"); }
+    function closeChat() { document.getElementById('chat-window').style.display = 'none'; activeChat = ''; }
 </script>
 </body>
 </html>
